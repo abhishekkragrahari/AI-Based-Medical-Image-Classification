@@ -1,0 +1,58 @@
+name: experiments
+
+# Runs the full real-data pipeline on a GitHub-hosted runner (CPU), because the
+# dataset host is not reachable from every development environment.
+# Results (reports/ and the README Results block) are pushed to a new branch
+# results/<run id> for review; data/ and runs/ are uploaded only as a temporary artifact.
+
+on:
+  workflow_dispatch:
+    inputs:
+      include_e1:
+        description: "Also run the long MedMNIST ResNet-18 protocol (E1, several hours on CPU)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  run-all:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install CPU-only PyTorch
+        run: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      - name: Install requirements
+        run: pip install -r requirements.txt
+      - name: Hardware
+        run: nproc && free -h && df -h .
+      - name: Tests
+        run: python -m pytest -q
+      - name: Full pipeline (E0-E7)
+        shell: bash  # -eo pipefail, so a failing step is not hidden by tee
+        run: python -m scripts.run_all --final ${{ inputs.include_e1 && '--include-e1' || '' }} 2>&1 | tee reports_run.log
+      - name: Upload run logs and checkpoints (temporary)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runs-${{ github.run_id }}
+          path: |
+            reports_run.log
+            reports/
+            runs/**/summary.json
+            runs/**/history.json
+          retention-days: 14
+      - name: Push results to a review branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898244+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "results/${{ github.run_id }}"
+          git add reports README.md
+          git commit -m "Add real-data results from experiments run ${{ github.run_id }}"
+          git push origin "results/${{ github.run_id }}"
