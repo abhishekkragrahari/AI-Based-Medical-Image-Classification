@@ -36,6 +36,7 @@ python -m scripts.run_all --quick                    # ~1-2 min smoke run -> run
 python -m scripts.run_all                            # E0, E2-E4, E5 on val (~45 min CPU); test untouched
 python -m scripts.run_all --final                    # ...then E7 once and fill the README Results
                                                      # add --include-e1 for the ~4 h ResNet-18 protocol
+# No local download access? Run the 'experiments' workflow in GitHub Actions; it pushes results to a results/<run id> branch.
 
 # Or step by step:
 
