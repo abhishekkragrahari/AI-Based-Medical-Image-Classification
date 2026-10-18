@@ -30,7 +30,7 @@ Implemented in `medxai/data.py::validate_dataset`, run by `python -m scripts.val
 - [ ] Patient/source overlap — **not possible** (no identifiers); documented as a limitation.
 - [ ] Label quality review — not possible beyond duplicate-label conflicts; labels are taken as released.
 
-Results: pending data access (E0).
+Results (2026-10-18, `reports/data_validation_28.json`): MD5 matches the official file; all checks passed. Counts — train 4,708 (normal 1,214 / pneumonia 3,494), val 524 (135 / 389), test 624 (234 / 390). Exact duplicates: 18 within train, 3 within test, 8 shared between train and val, none shared with test.
 
 ## Splitting
 Official MedMNIST splits are used unchanged so that results are comparable with published work. The test split is used once, at the end (E7), through `scripts/final_eval.py --final`; all other code paths refuse it. Patient-level re-splitting is impossible without identifiers.
