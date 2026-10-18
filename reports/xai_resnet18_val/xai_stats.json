@@ -1,0 +1,144 @@
+{
+ "split": "val",
+ "checkpoints": [
+  "runs/resnet18_s0/best.pt",
+  "runs/resnet18_s1/best.pt",
+  "runs/resnet18_s2/best.pt"
+ ],
+ "n_samples_stats": 100,
+ "chosen_examples": {
+  "TP": [
+   194,
+   236,
+   327,
+   487
+  ],
+  "TN": [
+   174,
+   199,
+   281,
+   366
+  ],
+  "FP": [],
+  "FN": [
+   16,
+   142,
+   206,
+   315
+  ]
+ },
+ "uniform_border_mass_reference": 0.3826530612244898,
+ "per_method": {
+  "gradcam": {
+   "border_mass": {
+    "mean": 0.2790593514172162,
+    "std": 0.06363387466670663,
+    "n": 100,
+    "n_undefined": 0
+   },
+   "deletion_auc": {
+    "mean": 0.7510102446004748,
+    "std": 0.26132569062831035,
+    "n": 100,
+    "n_undefined": 0
+   },
+   "stability": {
+    "mean": 0.9971738313217763,
+    "std": 0.003847752756333658,
+    "n": 30,
+    "n_undefined": 0
+   }
+  },
+  "ig": {
+   "border_mass": {
+    "mean": 0.31333262904252857,
+    "std": 0.06914560152880428,
+    "n": 100,
+    "n_undefined": 0
+   },
+   "deletion_auc": {
+    "mean": 0.695151286534965,
+    "std": 0.29043498378877053,
+    "n": 100,
+    "n_undefined": 0
+   },
+   "stability": {
+    "mean": 0.9024389272185599,
+    "std": 0.03717812306379952,
+    "n": 30,
+    "n_undefined": 0
+   }
+  },
+  "occlusion": {
+   "border_mass": {
+    "mean": 0.13783484455785527,
+    "std": 0.11364434807807385,
+    "n": 100,
+    "n_undefined": 0
+   },
+   "deletion_auc": {
+    "mean": 0.5550124246068299,
+    "std": 0.315100427227474,
+    "n": 100,
+    "n_undefined": 0
+   },
+   "stability": {
+    "mean": 0.9838461649051061,
+    "std": 0.012331253532821282,
+    "n": 30,
+    "n_undefined": 0
+   }
+  }
+ },
+ "random_deletion_auc": {
+  "mean": 0.6977602398544549,
+  "std": 0.2523810799018252,
+  "n": 100,
+  "n_undefined": 0
+ },
+ "cross_method_spearman": {
+  "gradcam~ig": {
+   "mean": 0.02803211888590115,
+   "std": 0.20693547491159256,
+   "n": 100,
+   "n_undefined": 0
+  },
+  "gradcam~occlusion": {
+   "mean": 0.3572314801508229,
+   "std": 0.22063001729586063,
+   "n": 100,
+   "n_undefined": 0
+  },
+  "ig~occlusion": {
+   "mean": 0.14492080078527675,
+   "std": 0.12183979663911805,
+   "n": 100,
+   "n_undefined": 0
+  }
+ },
+ "cross_seed_top10pct_iou": {
+  "gradcam": {
+   "mean": 0.4275984664272416,
+   "std": 0.24394635894100314,
+   "n": 200,
+   "n_undefined": 0
+  },
+  "ig": {
+   "mean": 0.24618836719868065,
+   "std": 0.07426361498847704,
+   "n": 200,
+   "n_undefined": 0
+  },
+  "occlusion": {
+   "mean": 0.44549862258557466,
+   "std": 0.20302262078714303,
+   "n": 200,
+   "n_undefined": 0
+  }
+ },
+ "notes": [
+  "deletion_auc: lower than random_deletion_auc => attribution ranks pixels the model relies on",
+  "border_mass well above uniform_border_mass_reference suggests reliance on image borders (possible shortcut)",
+  "stability: Spearman between maps for x and x+N(0,0.05^2) in normalised units"
+ ]
+}
