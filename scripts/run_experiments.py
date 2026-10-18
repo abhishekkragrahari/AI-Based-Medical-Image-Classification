@@ -54,7 +54,7 @@ def main(argv=None):
             "val_at_0.5": aggregate(sums, "val_at_0.5"),
             "val_at_youden": aggregate(sums, "val_at_youden"),
         }
-    report["_selection_rule"] = "highest mean val AUROC at threshold-free level"
+    report["_selection_rule"] = "highest mean val AUROC across seeds"
     report["_selected"] = max((k for k in report if not k.startswith("_")),
                               key=lambda k: report[k]["val_at_0.5"]["auroc"]["mean"])
     os.makedirs(os.path.dirname(a.report) or ".", exist_ok=True)

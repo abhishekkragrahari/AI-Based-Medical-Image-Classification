@@ -4,6 +4,10 @@ Uploaded images are processed in memory and not stored. Runs on localhost only.
 """
 
 import argparse
+import os
+
+# No telemetry / external calls from the demo (DEPLOYMENT.md: privacy).
+os.environ.setdefault("GRADIO_ANALYTICS_ENABLED", "False")
 
 import numpy as np
 from PIL import Image

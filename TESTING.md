@@ -1,40 +1,47 @@
 # Testing and Quality Assurance
 
+Run: `python -m pytest -q` (≈ 10 s on 4 CPU threads). All tests use **synthetic** images (`medxai.data.make_synthetic_npz`); no medical data is needed or included.
+
 ## Test levels
 ### Unit tests
-- Label parsing and mapping.
-- Image loading and transformation.
-- Dataset split and grouping logic.
-- Metric calculation.
-- Checkpoint save/load.
-- Prediction shape and output validation.
+- [x] Label parsing and mapping — `tests/test_data.py::test_load_and_shapes`, invalid labels in `test_validation_detects_problems`.
+- [x] Image loading and transformation — normaliser fitted on train only (`test_normalizer_fit_on_train_only`), deterministic augmentation (`test_dataset_and_augment`).
+- [x] Dataset split and grouping logic — official splits are used as-is; cross-split duplicate detection tested. Grouping by patient: not applicable (no IDs).
+- [x] Metric calculation — `tests/test_metrics.py` (hand-computed confusion/class-wise values, AUROC edge cases, ECE, Youden, bootstrap CI).
+- [x] Checkpoint save/load — `tests/test_models.py::test_checkpoint_roundtrip`; malicious pickle rejected (`test_rejects_pickled_code`).
+- [x] Prediction shape and output validation — `test_output_shape` (28 and 64 px), probabilities sum to 1 in inference test.
 
-### Integration tests
-- Tiny synthetic or approved sample dataset passes through the full pipeline.
-- One short training run completes.
-- Evaluation produces expected output files.
-- Inference works on valid inputs and handles invalid inputs clearly.
-- XAI output generation works for a supported model.
+### Integration tests (`tests/test_pipeline.py`)
+- [x] Tiny synthetic dataset passes through the full pipeline (train → evaluate → explain → predict).
+- [x] One short training run completes and is bit-reproducible with the same seed on CPU.
+- [x] Evaluation produces expected output files; test split refused without `final=True` / `--final`; test access logged.
+- [x] Inference works on valid inputs (grayscale PNG, grayscale-as-RGB JPEG) and rejects invalid ones (colour, too small, wrong extension, corrupt, empty, missing file, missing checkpoint).
+- [x] XAI output generation works for Grad-CAM, IG and occlusion; quality metrics are bounded.
+- [x] Experiment matrix + final evaluation scripts; all repo configs parse; unknown config keys rejected.
+- [x] Gradio app builds with and without weights (`tests/test_app.py`).
 
-### Data validation
-- No missing or invalid labels.
-- Expected dimensions/channels.
-- No patient/source overlap across splits where identifiers are available.
-- No exact duplicates across splits.
-- Class distribution is reported.
+### Data validation (`scripts/validate_data.py`)
+- [x] No missing or invalid labels.
+- [x] Expected dimensions/channels and official split sizes.
+- [ ] No patient/source overlap across splits — **cannot be checked**: no identifiers.
+- [x] No exact duplicates across splits (+ near-duplicate candidates).
+- [x] Class distribution is reported.
+Real-data run: **pending** (download blocked).
+
+## Latest result
+2026-10-18, Python 3.13.16, torch 2.14.1 (CPU), Linux x86_64: `37 passed`.
 
 ## Reproducibility
-Record Python and library versions, operating system, hardware, random seeds, config, dataset version, and Git commit.
+Each run's `summary.json` records Python/library versions, OS, CPU count, threads, seed, full config, dataset MD5 and Git commit (+ dirty flag).
 
 ## Safety and security
-- Never load untrusted serialized model files without assessing risk.
-- Keep secrets out of code and logs.
-- Avoid executing downloaded scripts without review.
-- Do not include private medical data in test fixtures.
+- Checkpoints are loaded with `torch.load(weights_only=True)`; `np.load(allow_pickle=False)`.
+- No secrets in code or logs; no network calls except `scripts/download_data.py` (official Zenodo URL, MD5-verified).
+- No private medical data in test fixtures.
 
 ## Release checklist
-- [ ] Tests pass in a clean environment.
-- [ ] Setup instructions are accurate.
-- [ ] Evaluation script uses the intended split.
-- [ ] No results are fabricated.
-- [ ] Known limitations are documented.
+- [x] Tests pass in a clean environment (fresh venv in this cloud session).
+- [x] Setup instructions are accurate (README commands run in this session, except data download).
+- [x] Evaluation script uses the intended split (gated test).
+- [x] No results are fabricated.
+- [x] Known limitations are documented.
