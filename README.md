@@ -78,4 +78,4 @@ This is a research and educational project. It is not a medical device and must 
 ## License and attribution
 - Upstream code: MedMNIST, Apache-2.0 (not vendored; only metadata such as URLs/MD5s/split sizes reused).
 - Data: PneumoniaMNIST, CC BY 4.0. Please cite: Yang et al., "MedMNIST v2", *Scientific Data* 10, 41 (2023), DOI 10.1038/s41597-022-01721-8; Yang, Shi, Ni, "MedMNIST Classification Decathlon", ISBI 2021; Kermany et al., *Cell* 172(5) (2018), DOI 10.1016/j.cell.2018.02.010.
-- License for this repository's own code: **not yet chosen** by the owner. Until one is added, default copyright applies.
+- This repository's own code: MIT License (see `LICENSE`). The license covers the code only; the dataset keeps its CC BY 4.0 terms.

@@ -34,8 +34,8 @@ Build a reproducible medical image classification pipeline with explainability, 
 - Target modality and task: **decided** — pediatric chest X-ray, binary normal vs pneumonia.
 - Dataset and applicable terms: **decided** — PneumoniaMNIST (MedMNIST v2), CC BY 4.0.
 - Public GitHub repository to build on: **decided** — https://github.com/MedMNIST/MedMNIST (Apache-2.0).
+- License for this repository's own code: **decided** — MIT (2026-10-18).
 - Compute environment and available hardware: **checked** — Claude Code cloud session, 4 vCPU, 15 GB RAM, no GPU; CPU-only path is the default.
 
 ## Decisions still required
-- License for this repository's own code (owner's decision).
 - Network access to `zenodo.org` in the cloud environment (or another approved way to provide the data) — currently blocking all real-data experiments.

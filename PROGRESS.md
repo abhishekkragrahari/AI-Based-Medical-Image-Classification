@@ -28,7 +28,8 @@ Update this file after each meaningful work session. Record actual outcomes only
 - Goal: close the remaining gaps that do not need the real data.
 - Added `scripts/run_all.py` (download → E0 → E2–E4 [+E1] → E5 → E7 only with `--final` → report; `--quick` writes to `runs/quick`, `reports/quick`), `scripts/make_report.py` (Markdown from `reports/*.json`, `--update-readme` replaces the README block between `<!-- results:start/end -->`), `.github/workflows/tests.yml`, VS Code launch entries, 2 tests.
 - Commands: `python -m pytest -q` → 39 passed; `python -m scripts.run_all --quick` → download fails cleanly with exit 1 (zenodo.org still blocked here).
-- Still open: real-data run on the owner's PC (`python -m scripts.run_all --quick`, then `--final`); owner's licence choice.
+- Owner chose the MIT licence for the code → `LICENSE` added.
+- Still open: real-data run on the owner's PC (`python -m scripts.run_all --quick`, then `--final`).
 
 ### 2026-10-18 (cloud session)
 - Goal: carry out Stages 1–8 of PROJECT_PLAN.md as far as possible in the cloud session.
@@ -60,7 +61,6 @@ Update this file after each meaningful work session. Record actual outcomes only
   3. E2–E4: `run_experiments` with the four configs (~45 min CPU); E1 (~4 h CPU)
   4. E5: `scripts/explain.py` on the selected config's 3 seeds (val split)
   5. E7: `scripts/final_eval.py --final` once; then write README Results + limitations/failure cases
-  6. Owner: choose a licence for this repository's code.
 
 ## Experiment links
 - Configs: `configs/`
