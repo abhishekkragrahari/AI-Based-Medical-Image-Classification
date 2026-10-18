@@ -1,0 +1,77 @@
+{
+ "file": "pneumoniamnist.npz",
+ "md5": "28209eda62fecd6e6a2d98b1501bb15f",
+ "md5_matches_official": true,
+ "ok": true,
+ "errors": [],
+ "warnings": [
+  "train: 18 exact duplicate images within split",
+  "test: 3 exact duplicate images within split",
+  "8 exact duplicate images shared between train and val",
+  "No patient identifiers in the MedMNIST release: patient-level overlap between train and val cannot be checked (the source train set was split 9:1 by image)."
+ ],
+ "stats": {
+  "train": {
+   "n": 4708,
+   "shape": [
+    28,
+    28
+   ],
+   "class_counts": {
+    "0": 1214,
+    "1": 3494
+   },
+   "pixel_min": 0,
+   "pixel_max": 255,
+   "pixel_mean": 145.83999824441247,
+   "n_constant_images": 0,
+   "n_within_split_exact_duplicates": 18,
+   "n_duplicate_groups_conflicting_labels": 0
+  },
+  "val": {
+   "n": 524,
+   "shape": [
+    28,
+    28
+   ],
+   "class_counts": {
+    "0": 135,
+    "1": 389
+   },
+   "pixel_min": 0,
+   "pixel_max": 255,
+   "pixel_mean": 145.13575420626265,
+   "n_constant_images": 0,
+   "n_within_split_exact_duplicates": 0,
+   "n_duplicate_groups_conflicting_labels": 0
+  },
+  "test": {
+   "n": 624,
+   "shape": [
+    28,
+    28
+   ],
+   "class_counts": {
+    "0": 234,
+    "1": 390
+   },
+   "pixel_min": 0,
+   "pixel_max": 254,
+   "pixel_mean": 143.81210753532181,
+   "n_constant_images": 0,
+   "n_within_split_exact_duplicates": 3,
+   "n_duplicate_groups_conflicting_labels": 0
+  },
+  "cross_split_exact_duplicates": {
+   "train-val": 8,
+   "train-test": 0,
+   "val-test": 0
+  },
+  "cross_split_near_duplicate_candidates": {
+   "train-val": 10,
+   "train-test": 0,
+   "val-test": 0
+  },
+  "patient_ids_available": false
+ }
+}
