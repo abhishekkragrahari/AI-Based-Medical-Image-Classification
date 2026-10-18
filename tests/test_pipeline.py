@@ -193,3 +193,43 @@ def test_all_repo_configs_parse():
     assert paths
     for p in paths:
         TrainConfig.from_file(p)
+
+
+def test_run_all_and_report(synth_npz, tmp_path):
+    import yaml
+
+    from scripts import make_report, run_all
+
+    cfg = tmp_path / "tiny.yaml"
+    cfg.write_text(yaml.safe_dump({"model": "small_cnn", "model_kwargs": {"width": 8}, "epochs": 2,
+                                   "batch_size": 32}))
+    reports = tmp_path / "reports"
+    args = ["--data", synth_npz, "--synthetic", "--quick", "--configs", str(cfg),
+            "--runs-dir", str(tmp_path / "runs"), "--reports-dir", str(reports)]
+    assert run_all.main(args) == 0
+    assert not (reports / "test_summary.json").exists()  # test split untouched without --final
+    text = (reports / "RESULTS.md").read_text()
+    assert "E7 Held-out test" in text and "Not run yet. The test split" in text
+    assert "| tiny | 1 |" in text and (reports / "xai_tiny_val" / "xai_stats.json").exists()
+
+    assert run_all.main(args + ["--final"]) == 0
+    assert (reports / "test_summary.json").exists()
+    text = (reports / "RESULTS.md").read_text()
+    assert "threshold chosen on val" in text and "Selected by validation" in text
+
+    readme = tmp_path / "README.md"
+    readme.write_text(f"# x\n{make_report.START}\nPLACEHOLDER\n{make_report.END}\nafter\n")
+    assert make_report.main(["--reports", str(reports), "--out", str(tmp_path / "r.md"),
+                             "--update-readme", "--readme", str(readme)]) == 0
+    r = readme.read_text()
+    assert "PLACEHOLDER" not in r and "E0 Data validation" in r and r.endswith("after\n")
+    readme.write_text("no markers\n")
+    with pytest.raises(ValueError):
+        make_report.main(["--reports", str(reports), "--update-readme", "--readme", str(readme)])
+
+
+def test_report_with_no_results(tmp_path):
+    from scripts import make_report
+
+    assert make_report.main(["--reports", str(tmp_path / "empty"), "--out", str(tmp_path / "r.md")]) == 0
+    assert (tmp_path / "r.md").read_text().count("Not run yet") == 5

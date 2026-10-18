@@ -18,6 +18,7 @@ Run: `python -m pytest -q` (≈ 10 s on 4 CPU threads). All tests use **syntheti
 - [x] Inference works on valid inputs (grayscale PNG, grayscale-as-RGB JPEG) and rejects invalid ones (colour, too small, wrong extension, corrupt, empty, missing file, missing checkpoint).
 - [x] XAI output generation works for Grad-CAM, IG and occlusion; quality metrics are bounded.
 - [x] Experiment matrix + final evaluation scripts; all repo configs parse; unknown config keys rejected.
+- [x] One-command pipeline (`scripts/run_all.py`) leaves the test split untouched without `--final`; results report (`scripts/make_report.py`) handles missing reports and rewrites only the README section between its markers.
 - [x] Gradio app builds with and without weights (`tests/test_app.py`).
 
 ### Data validation (`scripts/validate_data.py`)
@@ -29,7 +30,7 @@ Run: `python -m pytest -q` (≈ 10 s on 4 CPU threads). All tests use **syntheti
 Real-data run: **pending** (download blocked).
 
 ## Latest result
-2026-10-18, Python 3.13.16, torch 2.14.1 (CPU), Linux x86_64: `37 passed`.
+2026-10-18, Python 3.13.16, torch 2.14.1 (CPU), Linux x86_64: `39 passed`. CI (`.github/workflows/tests.yml`) runs the same suite on Python 3.10 and 3.13 with CPU-only PyTorch.
 
 ## Reproducibility
 Each run's `summary.json` records Python/library versions, OS, CPU count, threads, seed, full config, dataset MD5 and Git commit (+ dirty flag).

@@ -5,7 +5,7 @@ Update this file after each meaningful work session. Record actual outcomes only
 ## Current status
 - Phase: Implementation complete and tested on synthetic data; real-data experiments (E0–E7) not started
 - Last updated: 2026-10-18
-- Repository URL/commit: https://github.com/abhishekkragrahari/AI-Based-Medical-Image-Classification, branch `main-0dqbsi`
+- Repository URL/commit: https://github.com/abhishekkragrahari/AI-Based-Medical-Image-Classification, branch `main`
 - Dataset/version: PneumoniaMNIST, MedMNIST v3.0.2 files (Zenodo record 10519652), 28 px — **not yet downloaded**
 - Current blocker: `zenodo.org` returns HTTP 403 from the cloud session's egress proxy (network policy). Fix: add `zenodo.org` to the environment's allowed domains (cloud environment menu → Edit → Network access), or run the commands locally.
 
@@ -18,11 +18,18 @@ Update this file after each meaningful work session. Record actual outcomes only
 - [ ] Baseline reproduced — E1 config ready, blocked
 - [ ] Candidate models evaluated — E2–E4 configs ready, blocked
 - [ ] Explainability analysis completed — code ready, blocked
-- [x] Tests passed (37/37, synthetic data)
+- [x] Tests passed (39/39, synthetic data)
+- [x] One-command pipeline (`scripts/run_all.py`), automatic results report (`scripts/make_report.py`), GitHub Actions CI
 - [x] Deployment/inference workflow tested (CLI + Gradio, synthetic weights and images)
 - [x] README updated (no results claimed)
 
 ## Session log
+### 2026-10-18 (cloud session, "complete the project")
+- Goal: close the remaining gaps that do not need the real data.
+- Added `scripts/run_all.py` (download → E0 → E2–E4 [+E1] → E5 → E7 only with `--final` → report; `--quick` writes to `runs/quick`, `reports/quick`), `scripts/make_report.py` (Markdown from `reports/*.json`, `--update-readme` replaces the README block between `<!-- results:start/end -->`), `.github/workflows/tests.yml`, VS Code launch entries, 2 tests.
+- Commands: `python -m pytest -q` → 39 passed; `python -m scripts.run_all --quick` → download fails cleanly with exit 1 (zenodo.org still blocked here).
+- Still open: real-data run on the owner's PC (`python -m scripts.run_all --quick`, then `--final`); owner's licence choice.
+
 ### 2026-10-18 (cloud session)
 - Goal: carry out Stages 1–8 of PROJECT_PLAN.md as far as possible in the cloud session.
 - Hardware checked: 4 vCPU Intel Xeon 2.1 GHz, 15 GB RAM, no GPU (`nvidia-smi` absent), ~31 GB free disk, Python 3.13.16, Linux 6.18 x86_64.

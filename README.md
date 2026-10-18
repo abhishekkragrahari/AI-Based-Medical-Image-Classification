@@ -4,7 +4,7 @@
 A reproducible, CPU-friendly pipeline for **binary chest X-ray classification (normal vs pneumonia)** on [PneumoniaMNIST](https://github.com/MedMNIST/MedMNIST) (MedMNIST v2), with explainability (Grad-CAM, Integrated Gradients, occlusion) and checks on explanation quality. The starting point is the official MedMNIST repository (Apache-2.0); see `REPOSITORY_ANALYSIS.md`.
 
 ## Project status (2026-10-18)
-- **Implemented and tested** (37 tests pass on synthetic data): data validation and leakage audit, small CNN and ResNet-18, training with validation-only selection, test evaluation gated behind `--final`, class-wise metrics with bootstrap CIs and calibration, XAI methods and quality metrics, CLI and Gradio inference with input validation.
+- **Implemented and tested** (39 tests pass on synthetic data): data validation and leakage audit, small CNN and ResNet-18, training with validation-only selection, test evaluation gated behind `--final`, class-wise metrics with bootstrap CIs and calibration, XAI methods and quality metrics, CLI and Gradio inference with input validation.
 - **Not yet run on real data:** the dataset download from `zenodo.org` is blocked by the network policy of the cloud environment used so far. **No real performance results exist yet**, so none are reported.
 
 ## Goals
@@ -18,8 +18,9 @@ A reproducible, CPU-friendly pipeline for **binary chest X-ray classification (n
 medxai/        data.py (loading, validation, normalisation, augmentation) · models.py · train.py
                metrics.py · evaluate.py (gated test) · xai.py · infer.py
 scripts/       download_data · validate_data · train · run_experiments · evaluate · final_eval · explain · predict
+               run_all (whole pipeline) · make_report (reports/*.json -> Markdown)
 configs/       small_cnn, resnet18, resnet18_medmnist_protocol, ablations
-tests/         pytest suite (synthetic data only)
+tests/         pytest suite (synthetic data only); CI: .github/workflows/tests.yml
 app.py         local Gradio demo
 reports/       small JSON/PNG outputs (committed); runs/ and data/ are git-ignored
 ```
@@ -29,6 +30,14 @@ reports/       small JSON/PNG outputs (committed); runs/ and data/ are git-ignor
 python -m venv .venv && . .venv/bin/activate        # Python 3.13 tested
 pip install -r requirements.txt
 python -m pytest -q                                  # synthetic-data tests
+
+# One command for everything (each step below, in order):
+python -m scripts.run_all --quick                    # ~1-2 min smoke run -> runs/quick, reports/quick
+python -m scripts.run_all                            # E0, E2-E4, E5 on val (~45 min CPU); test untouched
+python -m scripts.run_all --final                    # ...then E7 once and fill the README Results
+                                                     # add --include-e1 for the ~4 h ResNet-18 protocol
+
+# Or step by step:
 
 python -m scripts.download_data --size 28            # needs access to zenodo.org; verifies MD5
 python -m scripts.validate_data --out reports/data_validation_28.json            # E0
@@ -51,7 +60,11 @@ CPU timing on 4 vCPUs: small CNN ≈ 5 s/epoch, ResNet-18 ≈ 48 s/epoch at 28 p
 Official MedMNIST splits (train 4,708 / val 524 / test 624, as documented upstream). Normalisation fitted on train. Model, epoch and decision threshold chosen on validation only. Test evaluated once for **all** runs, so the test set is not used to pick a winner. Metrics: AUROC (primary), AUPRC, balanced accuracy, sensitivity, specificity, per-class precision/F1, ECE, bootstrap 95% CIs; mean ± SD over 3 seeds. Details: `EXPERIMENT_PLAN.md`, `XAI_PLAN.md`.
 
 ## Results
+Filled in automatically by `python -m scripts.make_report --update-readme` (run by `scripts.run_all --final`) from the JSON files in `reports/`. Nothing below is typed by hand.
+
+<!-- results:start -->
 None yet. Results will be added here only after the scripts have been run on the real data.
+<!-- results:end -->
 
 ## Limitations
 - No patient identifiers: the official val split was carved from the source training set by image, so train/val patient overlap is possible and validation scores may be optimistic.
