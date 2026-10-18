@@ -1,0 +1,10 @@
+# E3: ResNet-18 (from scratch, small-input stem), 28 px
+data_path: data/pneumoniamnist.npz
+model: resnet18
+epochs: 40
+batch_size: 128
+lr: 0.001
+weight_decay: 0.0001
+patience: 10
+class_weighting: false
+augment: true
