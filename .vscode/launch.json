@@ -1,6 +1,10 @@
 {
   "version": "0.2.0",
   "configurations": [
+    {"name": "0a. Whole pipeline, quick check", "type": "debugpy", "request": "launch", "module": "scripts.run_all",
+     "args": ["--quick"], "cwd": "${workspaceFolder}"},
+    {"name": "0b. Whole pipeline, final (E0-E7 + README results)", "type": "debugpy", "request": "launch",
+     "module": "scripts.run_all", "args": ["--final"], "cwd": "${workspaceFolder}"},
     {"name": "1. Download data (28 px)", "type": "debugpy", "request": "launch", "module": "scripts.download_data",
      "args": ["--size", "28"], "cwd": "${workspaceFolder}"},
     {"name": "2. Validate data (E0)", "type": "debugpy", "request": "launch", "module": "scripts.validate_data",
