@@ -1,0 +1,22 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {"name": "1. Download data (28 px)", "type": "debugpy", "request": "launch", "module": "scripts.download_data",
+     "args": ["--size", "28"], "cwd": "${workspaceFolder}"},
+    {"name": "2. Validate data (E0)", "type": "debugpy", "request": "launch", "module": "scripts.validate_data",
+     "args": ["--out", "reports/data_validation_28.json"], "cwd": "${workspaceFolder}"},
+    {"name": "3. Train small CNN (seed 0)", "type": "debugpy", "request": "launch", "module": "scripts.train",
+     "args": ["--config", "configs/small_cnn.yaml", "--seed", "0", "--run-name", "small_cnn_s0"], "cwd": "${workspaceFolder}"},
+    {"name": "4. Experiments E2-E4 (val only)", "type": "debugpy", "request": "launch", "module": "scripts.run_experiments",
+     "args": ["--seeds", "0", "1", "2", "--configs", "configs/small_cnn.yaml", "configs/resnet18.yaml",
+              "configs/small_cnn_classweight.yaml", "configs/small_cnn_noaug.yaml", "--report", "reports/val_summary.json"],
+     "cwd": "${workspaceFolder}"},
+    {"name": "5. Explain small CNN (E5, val)", "type": "debugpy", "request": "launch", "module": "scripts.explain",
+     "args": ["--ckpts", "runs/small_cnn_s0/best.pt", "runs/small_cnn_s1/best.pt", "runs/small_cnn_s2/best.pt",
+              "--split", "val", "--out", "reports/xai_small_cnn_val"], "cwd": "${workspaceFolder}"},
+    {"name": "6. Gradio demo", "type": "debugpy", "request": "launch", "program": "${workspaceFolder}/app.py",
+     "args": ["--ckpt", "runs/small_cnn_s0/best.pt"], "cwd": "${workspaceFolder}"},
+    {"name": "Pytest (all)", "type": "debugpy", "request": "launch", "module": "pytest", "args": ["-q"],
+     "cwd": "${workspaceFolder}"}
+  ]
+}

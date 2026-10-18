@@ -1,0 +1,16 @@
+# E1: approximate re-run of the MedMNIST v2 ResNet-18 (28) baseline protocol as described in
+# Yang et al., Sci Data 2023 (Adam, lr 1e-3, batch 128, 100 epochs, lr x0.1 at epochs 50 and 75,
+# checkpoint chosen on validation). Details not stated there (e.g. stem, augmentation) are
+# assumptions of this repo; see REPOSITORY_ANALYSIS.md. Not an exact reproduction.
+data_path: data/pneumoniamnist.npz
+model: resnet18
+epochs: 100
+batch_size: 128
+lr: 0.001
+weight_decay: 0.0
+optimizer: adam
+scheduler: multistep
+milestones: [50, 75]
+patience: 100
+class_weighting: false
+augment: false

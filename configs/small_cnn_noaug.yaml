@@ -1,0 +1,11 @@
+# E4 ablation: small CNN without augmentation (everything else identical to small_cnn.yaml)
+data_path: data/pneumoniamnist.npz
+model: small_cnn
+model_kwargs: {width: 32, dropout: 0.2}
+epochs: 40
+batch_size: 128
+lr: 0.001
+weight_decay: 0.0001
+patience: 10
+class_weighting: false
+augment: false
