@@ -1,0 +1,37 @@
+name: compare-sizes
+
+# Paired test comparison of the 28 px and 64 px final evaluations (scripts/compare_sizes.py).
+# Needs only the data files and the committed seed-ensemble scores; no training.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["claude/**"]
+    paths: ["reports/test_scores.json"]  # runs once the 28 px ensemble scores land
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install CPU-only PyTorch
+        run: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      - name: Install requirements
+        run: pip install -r requirements.txt
+      - name: Download data (28 and 64 px)
+        run: python -m scripts.download_data --size 28 && python -m scripts.download_data --size 64
+      - name: Compare
+        run: python -m scripts.compare_sizes --a reports/test_scores.json --a-data data/pneumoniamnist.npz --b reports/size64/test_scores.json --b-data data/pneumoniamnist_64.npz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compare-${{ github.run_id }}
+          path: reports/compare_28_vs_64.json
+          retention-days: 14

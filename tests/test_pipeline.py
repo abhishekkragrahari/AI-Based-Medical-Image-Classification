@@ -275,3 +275,25 @@ def test_paired_bootstrap_and_dedup(rng):
     assert d["auroc_diff"] > 0.3 and d["ci95"][0] > 0 and d["p_two_sided"] < 0.01
     same = paired_bootstrap_auroc(y, good, good, n_boot=50)
     assert same["auroc_diff"] == 0 and same["ci95"] == [0.0, 0.0]
+
+
+def test_compare_sizes(tmp_path, rng):
+    from medxai.data import make_synthetic_npz
+    from scripts import compare_sizes
+
+    a = make_synthetic_npz(str(tmp_path / "a.npz"), counts=(10, 10, 40))
+    b = make_synthetic_npz(str(tmp_path / "b.npz"), counts=(10, 10, 40))
+    other = make_synthetic_npz(str(tmp_path / "o.npz"), counts=(10, 10, 41))
+    from medxai.data import load_npz
+
+    y = load_npz(a)["test"][1]
+    for name, noise in (("sa.json", 2.0), ("sb.json", 0.2)):
+        s = np.clip(y + rng.normal(0, noise, len(y)), 0, 1)
+        (tmp_path / name).write_text(json.dumps({"scores": {"small_cnn": s.tolist()}}))
+    out = tmp_path / "c.json"
+    assert compare_sizes.main(["--a", str(tmp_path / "sa.json"), "--a-data", a, "--b", str(tmp_path / "sb.json"),
+                               "--b-data", b, "--n-boot", "100", "--out", str(out)]) == 0
+    r = json.load(open(out))
+    assert r["b_minus_a"]["auroc_diff"] > 0 and "specificity" in r["b_minus_a_at_0.5_ci95"]
+    assert compare_sizes.main(["--a", str(tmp_path / "sa.json"), "--a-data", a, "--b", str(tmp_path / "sb.json"),
+                               "--b-data", other, "--out", str(out)]) == 1  # different test split
