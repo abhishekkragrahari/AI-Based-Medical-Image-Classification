@@ -233,3 +233,28 @@ def test_report_with_no_results(tmp_path):
 
     assert make_report.main(["--reports", str(tmp_path / "empty"), "--out", str(tmp_path / "r.md")]) == 0
     assert (tmp_path / "r.md").read_text().count("Not run yet") == 5
+
+
+def test_run_all_larger_size(tmp_path):
+    """--size picks the matching data file name and keeps outputs separate from the 28 px ones."""
+    import yaml
+
+    from medxai.data import make_synthetic_npz
+    from scripts import run_all
+
+    data = tmp_path / "data"
+    data.mkdir()
+    make_synthetic_npz(str(data / "pneumoniamnist_64.npz"), size=64, counts=(40, 16, 16))
+    cfg = tmp_path / "tiny.yaml"
+    cfg.write_text(yaml.safe_dump({"model": "small_cnn", "model_kwargs": {"width": 8}, "epochs": 1,
+                                   "batch_size": 32}))
+    reports = tmp_path / "reports"
+    os.chdir(tmp_path)  # default data path data/pneumoniamnist_64.npz is relative
+    try:
+        assert run_all.main(["--size", "64", "--synthetic", "--quick", "--configs", str(cfg),
+                             "--runs-dir", str(tmp_path / "runs"), "--reports-dir", str(reports)]) == 0
+    finally:
+        os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    v = json.load(open(reports / "data_validation_64.json"))
+    assert v["file"] == "pneumoniamnist_64.npz"
+    assert "pneumoniamnist_64.npz" in (reports / "RESULTS.md").read_text()
