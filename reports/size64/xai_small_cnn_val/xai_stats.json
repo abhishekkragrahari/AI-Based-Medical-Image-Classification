@@ -1,0 +1,146 @@
+{
+ "split": "val",
+ "checkpoints": [
+  "runs/size64/small_cnn_s0/best.pt",
+  "runs/size64/small_cnn_s1/best.pt",
+  "runs/size64/small_cnn_s2/best.pt"
+ ],
+ "n_samples_stats": 100,
+ "chosen_examples": {
+  "TP": [
+   70,
+   76,
+   436,
+   445
+  ],
+  "TN": [
+   135,
+   233,
+   254,
+   438
+  ],
+  "FP": [
+   479
+  ],
+  "FN": [
+   115,
+   166,
+   315,
+   515
+  ]
+ },
+ "uniform_border_mass_reference": 0.33984375,
+ "per_method": {
+  "gradcam": {
+   "border_mass": {
+    "mean": 0.19834595113451872,
+    "std": 0.05150245594730441,
+    "n": 100,
+    "n_undefined": 0
+   },
+   "deletion_auc": {
+    "mean": 0.591981825158,
+    "std": 0.24725685720808233,
+    "n": 100,
+    "n_undefined": 0
+   },
+   "stability": {
+    "mean": 0.9881693258308756,
+    "std": 0.007028109173420965,
+    "n": 30,
+    "n_undefined": 0
+   }
+  },
+  "ig": {
+   "border_mass": {
+    "mean": 0.2558886431364298,
+    "std": 0.04520223666625701,
+    "n": 100,
+    "n_undefined": 0
+   },
+   "deletion_auc": {
+    "mean": 0.7083264854550362,
+    "std": 0.22449949486296314,
+    "n": 100,
+    "n_undefined": 0
+   },
+   "stability": {
+    "mean": 0.6687183167309941,
+    "std": 0.07894415548522463,
+    "n": 30,
+    "n_undefined": 0
+   }
+  },
+  "occlusion": {
+   "border_mass": {
+    "mean": 0.17134922095299562,
+    "std": 0.06322642340199525,
+    "n": 100,
+    "n_undefined": 0
+   },
+   "deletion_auc": {
+    "mean": 0.4457401689141989,
+    "std": 0.24737759347669838,
+    "n": 100,
+    "n_undefined": 0
+   },
+   "stability": {
+    "mean": 0.9619953325506055,
+    "std": 0.03866801685695136,
+    "n": 30,
+    "n_undefined": 0
+   }
+  }
+ },
+ "random_deletion_auc": {
+  "mean": 0.7399664261341096,
+  "std": 0.2671538015910058,
+  "n": 100,
+  "n_undefined": 0
+ },
+ "cross_method_spearman": {
+  "gradcam~ig": {
+   "mean": 0.04949021340571884,
+   "std": 0.09142496401932922,
+   "n": 100,
+   "n_undefined": 0
+  },
+  "gradcam~occlusion": {
+   "mean": 0.29113671245088063,
+   "std": 0.12890370027087406,
+   "n": 100,
+   "n_undefined": 0
+  },
+  "ig~occlusion": {
+   "mean": 0.17332057382750413,
+   "std": 0.10051975453434103,
+   "n": 100,
+   "n_undefined": 0
+  }
+ },
+ "cross_seed_top10pct_iou": {
+  "gradcam": {
+   "mean": 0.3490332879893155,
+   "std": 0.1515172456967502,
+   "n": 200,
+   "n_undefined": 0
+  },
+  "ig": {
+   "mean": 0.2320856870525874,
+   "std": 0.05422140507874478,
+   "n": 200,
+   "n_undefined": 0
+  },
+  "occlusion": {
+   "mean": 0.40419659580705036,
+   "std": 0.12826001221823102,
+   "n": 200,
+   "n_undefined": 0
+  }
+ },
+ "notes": [
+  "deletion_auc: lower than random_deletion_auc => attribution ranks pixels the model relies on",
+  "border_mass well above uniform_border_mass_reference suggests reliance on image borders (possible shortcut)",
+  "stability: Spearman between maps for x and x+N(0,0.05^2) in normalised units"
+ ]
+}
