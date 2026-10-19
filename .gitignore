@@ -10,3 +10,5 @@ __pycache__/
 reports/**/*.npy
 *.part
 reports/quick/
+web/pneumonia-demo.html
+web_model.json

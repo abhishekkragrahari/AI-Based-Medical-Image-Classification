@@ -27,6 +27,15 @@ def _b64(a: np.ndarray, dtype) -> str:
     return base64.b64encode(np.ascontiguousarray(a, dtype=dtype).tobytes()).decode("ascii")
 
 
+def _finite(o):
+    """Replace NaN/inf (e.g. undefined precision) with None so the output is strict JSON."""
+    if isinstance(o, dict):
+        return {k: _finite(v) for k, v in o.items()}
+    if isinstance(o, list):
+        return [_finite(v) for v in o]
+    return None if isinstance(o, float) and not np.isfinite(o) else o
+
+
 def fold_layers(model: SmallCNN) -> list[dict]:
     """Return [{w: (cout, cin, 3, 3), b: (cout,)}] with BatchNorm folded in."""
     sd = {k: v.detach().cpu().double().numpy() for k, v in model.state_dict().items()}
@@ -83,8 +92,7 @@ def export(run_dir: str, data_path: str | None = None, n_samples: int = 6) -> di
     if os.path.exists(summary):
         with open(summary) as f:
             s = json.load(f)
-        out["run"] = {k: s.get(k) for k in ("run_dir", "best_epoch", "n_params", "data_md5")}
-        out["run"]["val_at_0.5"] = s.get("val_at_0.5")
+        out["run"] = _finite({k: s.get(k) for k in ("best_epoch", "n_params", "data_md5", "val_at_0.5")})
     if data_path and n_samples > 0:
         from medxai.data import load_npz
 
@@ -107,7 +115,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
     e = export(a.run, a.data, a.n_samples)
     with open(a.out, "w") as f:
-        json.dump(e, f)
+        json.dump(e, f, allow_nan=False)
     print(f"wrote {a.out} ({os.path.getsize(a.out) / 1e6:.2f} MB, {len(e['samples'])} samples)")
     return 0
 
