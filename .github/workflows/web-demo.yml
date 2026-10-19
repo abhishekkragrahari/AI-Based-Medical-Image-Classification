@@ -1,0 +1,42 @@
+name: web-demo-model
+
+# Trains one small CNN (seed 0) on the real data and exports it as JSON for the
+# in-browser demo (scripts/export_web_model.py). The JSON is uploaded as a
+# temporary artifact only; weights are not committed to the repository.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["claude/**"]
+    paths: [".github/workflows/web-demo.yml", "scripts/export_web_model.py"]
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install CPU-only PyTorch
+        run: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      - name: Install requirements
+        run: pip install -r requirements.txt
+      - name: Download data
+        run: python -m scripts.download_data
+      - name: Train small CNN (seed 0)
+        run: python -m scripts.train --config configs/small_cnn.yaml --seed 0 --run-name web_small_cnn_s0
+      - name: Export for the browser
+        run: python -m scripts.export_web_model --run runs/web_small_cnn_s0 --data data/pneumoniamnist.npz --out web_model.json --n-samples 8
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-model-${{ github.run_id }}
+          path: |
+            web_model.json
+            runs/web_small_cnn_s0/summary.json
+          retention-days: 14
