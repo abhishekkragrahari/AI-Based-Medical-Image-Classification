@@ -19,7 +19,9 @@
 | E4 | Ablations: (a) class weighting, (b) no augmentation | Test contribution of each training choice | (same command as E2) | Done |
 | E5 | Explainability evaluation (val split) | Faithfulness / stability / shortcut checks | `python -m scripts.explain --ckpts runs/<sel>_s0/best.pt runs/<sel>_s1/best.pt runs/<sel>_s2/best.pt --split val --out reports/xai_<sel>_val` | Done (ResNet-18, val) |
 | E6 | Robustness / cross-domain | Generalisation | Not feasible: no external dataset available; noise-perturbation stability is covered in E5 | Not planned |
-| E7 | Final held-out evaluation | Unbiased assessment | `python -m scripts.final_eval --val-report reports/val_summary.json --final` | Done once (2026-10-18) |
+| E7 | Final held-out evaluation | Unbiased assessment | `python -m scripts.final_eval --val-report reports/val_summary.json --final` | Done once (2026-10-18); re-run 2026-10-19 (run 39296680857) with identical per-run results, adding seed ensembles and paired bootstrap |
+| E8 | Input resolution 64 px (small CNN, class-weighted small CNN) | Does resolution fix the low test specificity? | `python -m scripts.run_all --size 64 --final` (`experiments` workflow, size 64) | Done 2026-10-19 (run 39296675487). Added after the 28 px test results were seen, so its test numbers are a **second look** at the test set |
+| E8b | Paired 28 px vs 64 px test comparison (small CNN seed ensembles) | Is the 64 px change real? | `python -m scripts.compare_sizes ...` (`compare-sizes` workflow) | Done 2026-10-19 (run 39325733133) → `reports/compare_28_vs_64.json` |
 
 Pipeline verification on synthetic data (not an experiment): all scripts run end-to-end in `tests/test_pipeline.py`.
 

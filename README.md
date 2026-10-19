@@ -3,9 +3,10 @@
 ## Overview
 A reproducible, CPU-friendly pipeline for **binary chest X-ray classification (normal vs pneumonia)** on [PneumoniaMNIST](https://github.com/MedMNIST/MedMNIST) (MedMNIST v2), with explainability (Grad-CAM, Integrated Gradients, occlusion) and checks on explanation quality. The starting point is the official MedMNIST repository (Apache-2.0); see `REPOSITORY_ANALYSIS.md`.
 
-## Project status (2026-10-18)
+## Project status (2026-10-19)
 - **Implemented and tested** (39 tests pass on synthetic data): data validation and leakage audit, small CNN and ResNet-18, training with validation-only selection, test evaluation gated behind `--final`, class-wise metrics with bootstrap CIs and calibration, XAI methods and quality metrics, CLI and Gradio inference with input validation.
 - **Run on real data (2026-10-18):** E0, E2–E4, E5 and the one-time E7 test evaluation were run by the `experiments` GitHub Actions workflow (run 39142842061, CPU runner, 3 seeds). Results below are generated from `reports/*.json`. E1 (MedMNIST ResNet-18 protocol) has not been run yet.
+- **Follow-up (2026-10-19):** E8 trained the small CNNs on 64 px images (run 39296675487) and E8b compared 28 px and 64 px on the same test images (see [Higher resolution](#higher-resolution-64-px-second-look-at-the-test-set)). A re-run of the 28 px pipeline (run 39296680857) reproduced the per-run test results exactly. An in-browser demo is in `web/`.
 
 ## Goals
 - Reproduce a clearly defined baseline (MedMNIST v2 ResNet-18 protocol, E1).
@@ -170,16 +171,32 @@ Per-run test AUROC bootstrap 95% CIs (threshold-free):
 <!-- results:end -->
 
 ## What the results show
-Interpretation of the numbers above (all from `reports/`; n = 3 seeds, so no significance test is claimed):
+Interpretation of the numbers above (all from `reports/`; n = 3 seeds per model; model differences are tested with a paired bootstrap over test images on the seed ensembles):
 - **Validation is optimistic.** Validation AUROC is ≈0.998 for every model, but test AUROC is 0.965–0.980. The gap is largest for specificity: at threshold 0.5 most models classify only ≈75% of normal test images as normal (e.g. ResNet-18 seed 1: 70 of 234 normal test images called pneumonia), while sensitivity stays ≥0.98. This fits the known limitation that val was split from the source training set by image, not by patient; E0 found 8 exact duplicate images shared between train and val (none with test).
-- **No clear model winner.** ResNet-18 was selected by the pre-registered rule (highest mean val AUROC), but its margin over the small CNN is 0.0002, within seed variation, and test AUROC is also within overlapping ranges (0.980 ± 0.005 vs 0.979 ± 0.005). The small CNN has ~39× fewer parameters (287 k vs 11.2 M) and trained ~10× faster on CPU.
+- **No clear model winner.** ResNet-18 was selected by the pre-registered rule (highest mean val AUROC), but its margin over the small CNN is 0.0002, within seed variation, and test AUROC is also within overlapping ranges (0.980 ± 0.005 vs 0.979 ± 0.005). The paired bootstrap on the seed ensembles confirms this: small CNN minus ResNet-18 test AUROC −0.0002 (95% CI −0.0053 to +0.0045); only removing augmentation is worse (−0.0059, CI −0.0115 to −0.0008). The small CNN has ~39× fewer parameters (287 k vs 11.2 M) and trained ~10× faster on CPU.
 - **Ablations.** Removing augmentation lowered test AUROC (0.965 ± 0.013) and increased variance. Class weighting gave the highest test specificity at 0.5 (0.809 ± 0.035); this is an observation on the test set and was not used for selection.
 - **Calibration and threshold.** Test ECE (≈0.05–0.09) is several times the val ECE (≈0.015). The val-chosen Youden threshold helped the small CNN (balanced accuracy 0.875 → 0.907) but not ResNet-18.
 - **Explanations (ResNet-18, val, 100 images).** Occlusion has a lower deletion AUC than random deletion (0.555 vs 0.698), i.e. it ranks pixels the model relies on; Grad-CAM (0.751) and Integrated Gradients (0.695) do not beat random deletion at 28 px. Border mass is below the uniform reference (0.383) for all methods, so there is no sign of reliance on image borders. Agreement between seeds is low (top-10% IoU 0.25–0.45), so a single heatmap should not be read as *the* model's reasoning.
 
+## Higher resolution (64 px, second look at the test set)
+The low test specificity at 28 px raised the question of whether 28 × 28 px simply throws away too much detail. E8 re-ran the small CNN and the class-weighted small CNN on the official 64 px PneumoniaMNIST files (same splits, same configs, 3 seeds each; ResNet-18 was skipped because it is too slow on a CPU runner at 64 px). Selection again used validation only (small CNN). **This experiment was added after the 28 px test results were known, so its test numbers are a second look at the test set and are reported as such.** Full tables: `reports/size64/RESULTS.md`.
+
+| Small CNN, test, threshold 0.5 | 28 px | 64 px | 64 − 28 (paired, seed ensembles, 95% CI) |
+|---|---|---|---|
+| AUROC (mean ± SD of seeds) | 0.979 ± 0.005 | 0.982 ± 0.003 | +0.003 (−0.004 to +0.011) |
+| Specificity | 0.751 ± 0.024 | 0.870 ± 0.071 | +0.099 (+0.058 to +0.141) |
+| Sensitivity | 0.998 ± 0.003 | 0.973 ± 0.039 | |
+| Balanced accuracy | 0.875 ± 0.010 | 0.922 ± 0.017 | +0.045 (+0.025 to +0.067) |
+
+- At 64 px, the seed ensemble calls 31 of 234 normal test images pneumonia, against 54 at 28 px; it misses 4 of 390 pneumonia images against 1 (`reports/compare_28_vs_64.json`).
+- Ranking (AUROC) barely changes; the gain is in where the scores fall relative to 0.5, i.e. fewer confident false positives on normal images, and test ECE of the ensemble halves (0.051 → 0.026).
+- Explanations improve at 64 px: occlusion (deletion AUC 0.446) and Grad-CAM (0.592) both beat random deletion (0.740); Integrated Gradients (0.708) still does not. Border mass stays below the uniform reference.
+- Removing the 8 val images that duplicate training images changes validation metrics by ≤ 0.001, so the val→test gap is not explained by exact duplicates alone.
+
 ## Limitations
 - No patient identifiers: the official val split was carved from the source training set by image, so train/val patient overlap is possible. The observed val→test drop (above) and 8 exact train/val duplicates are consistent with this; validation scores are optimistic.
-- Single-source pediatric data at 28 px; no external validation is possible here; findings may not generalise.
+- Single-source pediatric data at 28 and 64 px; no external validation is possible here; findings may not generalise.
+- The 64 px experiment (E8) was decided after the 28 px test results were seen; its test results are a second look and should be confirmed on independent data.
 - No lesion annotations: explanations cannot be checked for localisation accuracy, only for faithfulness, stability and border reliance. Heatmaps do not show clinically valid reasoning.
 - External images go through centre-crop + resize; the exact MedMNIST resampling is not verified, so a small preprocessing mismatch is possible.
 

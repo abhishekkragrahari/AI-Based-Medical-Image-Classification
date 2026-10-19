@@ -24,6 +24,13 @@ Update this file after each meaningful work session. Record actual outcomes only
 - [x] README updated with script-generated results and their interpretation
 
 ## Session log
+### 2026-10-19 — Stronger results: 64 px, paired tests, de-duplicated val
+- Added `run_all --size` (and the `size` input of the `experiments` workflow), validation metrics/threshold without train duplicates, seed ensembles and a paired bootstrap of AUROC differences in `final_eval`, and `scripts/compare_sizes.py` (+ `compare-sizes` workflow). `python -m pytest -q` → 45 passed.
+- Run 39296675487 (64 px, small CNN ×2 configs × 3 seeds, ~1 h 25 min): test specificity 0.870 ± 0.071 vs 0.751 ± 0.024 at 28 px; paired ensemble difference +0.099 (95% CI +0.058 to +0.141); AUROC difference +0.003 (CI −0.004 to +0.011). Occlusion and Grad-CAM now beat random deletion. Second look at the test set (decided after the 28 px results).
+- Run 39296680857 (28 px re-run, ~3 h 25 min): per-run test metrics identical to run 39142842061 (reproducible on the CPU runner).
+- `reports/compare_28_vs_64.json` was copied from the job log of compare run 39325733133 (artifact downloads are blocked from the cloud session).
+- Next: E1 (MedMNIST protocol) if wanted; external validation would need another dataset.
+
 ### 2026-10-19 — In-browser demo
 - Added `scripts/export_web_model.py` (BatchNorm folded into the convs, float32 base64 JSON, a few **validation** images as samples), `web/engine.js` (plain-JS forward pass, Pillow-style bicubic resize, occlusion with patch 4 / stride 2), `web/demo_template.html` and `scripts/build_web_demo.py`.
 - Tests: `tests/test_web_export.py` checks the NumPy reference and the JS engine (run under node) against PyTorch: identical preprocessing, probabilities within 1e-4, heatmap within 1e-3. `python -m pytest -q` → 42 passed.
