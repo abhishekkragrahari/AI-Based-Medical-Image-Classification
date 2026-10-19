@@ -216,6 +216,8 @@ def test_run_all_and_report(synth_npz, tmp_path):
     assert (reports / "test_summary.json").exists()
     text = (reports / "RESULTS.md").read_text()
     assert "threshold chosen on val" in text and "Selected by validation" in text
+    assert "seed ensemble" in text and (reports / "test_scores.json").exists()
+    assert "de-duplicated val" in text
 
     readme = tmp_path / "README.md"
     readme.write_text(f"# x\n{make_report.START}\nPLACEHOLDER\n{make_report.END}\nafter\n")
@@ -258,3 +260,18 @@ def test_run_all_larger_size(tmp_path):
     v = json.load(open(reports / "data_validation_64.json"))
     assert v["file"] == "pneumoniamnist_64.npz"
     assert "pneumoniamnist_64.npz" in (reports / "RESULTS.md").read_text()
+
+
+def test_paired_bootstrap_and_dedup(rng):
+    from medxai.data import train_duplicate_mask
+    from medxai.metrics import paired_bootstrap_auroc
+
+    tr = rng.integers(0, 255, (5, 4, 4), dtype=np.uint8)
+    va = np.concatenate([tr[:2], rng.integers(0, 255, (3, 4, 4), dtype=np.uint8)])
+    assert train_duplicate_mask(tr, va).tolist() == [True, True, False, False, False]
+    y = rng.integers(0, 2, 200)
+    good, noise = y + rng.normal(0, 0.3, 200), rng.normal(0, 1, 200)
+    d = paired_bootstrap_auroc(y, good, noise, n_boot=300)
+    assert d["auroc_diff"] > 0.3 and d["ci95"][0] > 0 and d["p_two_sided"] < 0.01
+    same = paired_bootstrap_auroc(y, good, good, n_boot=50)
+    assert same["auroc_diff"] == 0 and same["ci95"] == [0.0, 0.0]

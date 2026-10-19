@@ -80,6 +80,12 @@ def _hashes(images: np.ndarray) -> list[str]:
     return [hashlib.sha1(np.ascontiguousarray(im).tobytes()).hexdigest() for im in images]
 
 
+def train_duplicate_mask(train_images: np.ndarray, images: np.ndarray) -> np.ndarray:
+    """True where an image is a byte-identical copy of some training image."""
+    seen = set(_hashes(train_images))
+    return np.array([h in seen for h in _hashes(images)], dtype=bool)
+
+
 def _near_dup_keys(images: np.ndarray, side: int = 8) -> list[bytes]:
     """Coarse perceptual key: block-mean downsample to side x side, then 4-bit quantise.
 

@@ -30,6 +30,15 @@ def _ms(d):
     return f"{d['mean']:.3f} ± {d['std']:.3f}" if d and d.get("mean") is not None else "n/a"
 
 
+def _single(m):
+    """binary_metrics() output -> the {key: {mean, std}} shape _metric_table expects."""
+    flat = dict(m)
+    for cls, d in m["per_class"].items():
+        for k, v in d.items():
+            flat[f"{cls}_{k}"] = v
+    return {k: {"mean": flat[k], "std": 0.0} for k, _ in COLS if k in flat}
+
+
 def _metric_table(rows):
     """rows: list of (name, n_runs, metrics dict keyed like COLS)."""
     out = ["| Model | Seeds | " + " | ".join(c for _, c in COLS) + " |",
@@ -66,6 +75,11 @@ def val_section(rep, title):
         return lines + ["Not run yet."]
     rows = [(k, len(v["runs"]), v["val_at_0.5"]) for k, v in rep.items() if not k.startswith("_")]
     lines += _metric_table(rows)
+    dd = [(k, len(v["runs"]), v["val_dedup_at_0.5"]) for k, v in rep.items()
+          if not k.startswith("_") and "val_dedup_at_0.5" in v]
+    if dd:
+        n = next(v["val_dedup_n"] for k, v in rep.items() if not k.startswith("_") and "val_dedup_n" in v)
+        lines += ["", f"Validation without images that also appear in train ({n} images):", ""] + _metric_table(dd)
     if "_selected" in rep:
         lines += ["", f"Selected by validation ({rep['_selection_rule']}): **{rep['_selected']}**."]
     return lines
@@ -76,9 +90,21 @@ def test_section(rep):
     if rep is None:
         return lines + ["Not run yet. The test split is only read by "
                         "`python -m scripts.final_eval --final`."]
-    for at, label in (("at_0.5", "threshold 0.5"), ("at_val_youden", "threshold chosen on val (Youden)")):
-        rows = [(k, len(v["runs"]), v["aggregate"][at]) for k, v in rep["models"].items()]
-        lines += ["", f"Test, {label}:", ""] + _metric_table(rows)
+    for at, label in (("at_0.5", "threshold 0.5"), ("at_val_youden", "threshold chosen on val (Youden)"),
+                      ("at_val_youden_dedup", "threshold chosen on de-duplicated val (Youden)")):
+        rows = [(k, len(v["runs"]), v["aggregate"][at]) for k, v in rep["models"].items() if at in v["aggregate"]]
+        if rows:
+            lines += ["", f"Test, {label}:", ""] + _metric_table(rows)
+    ens = [(k, "ens.", _single(v["seed_ensemble_at_0.5"])) for k, v in rep["models"].items()
+           if "seed_ensemble_at_0.5" in v]
+    if ens:
+        lines += ["", "Test, seed ensemble (mean score of the seeds), threshold 0.5 (± 0 = single value):", ""]
+        lines += _metric_table(ens)
+    pair = [(k, v["paired_auroc_vs_selected"]) for k, v in rep["models"].items() if "paired_auroc_vs_selected" in v]
+    if pair:
+        lines += ["", f"Paired bootstrap, test AUROC of each seed ensemble minus **{rep['selected_by_validation']}**:"]
+        lines += [f"- {k}: {d['auroc_diff']:+.4f} (95% CI {d['ci95'][0]:+.4f} to {d['ci95'][1]:+.4f}, "
+                  f"bootstrap p ≈ {d['p_two_sided']:.3f})" for k, d in pair]
     lines += ["", f"Model selected on validation before the test run: **{rep['selected_by_validation']}**."]
     lines += ["", "Per-run test AUROC bootstrap 95% CIs (threshold-free):"]
     for name, m in rep["models"].items():

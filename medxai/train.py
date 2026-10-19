@@ -19,7 +19,7 @@ import torch
 from torch import nn
 
 from . import __version__
-from .data import ArrayDataset, Normalizer, augment_batch, load_npz, md5sum
+from .data import ArrayDataset, Normalizer, augment_batch, load_npz, md5sum, train_duplicate_mask
 from .metrics import binary_metrics, youden_threshold
 from .models import build_model, count_parameters, save_checkpoint
 
@@ -173,12 +173,22 @@ def train(cfg: TrainConfig, verbose: bool = True) -> dict:
     val_p = predict_proba(model, val_ds.x)
     thr = youden_threshold(va_y, val_p)
     meta["val_threshold_youden"] = thr
+    # The official val split shares exact copies with train; a de-duplicated view gives a
+    # less optimistic validation estimate and an alternative threshold (both val-only).
+    keep = ~train_duplicate_mask(tr_x, va_x)
+    dedup = None
+    if len(np.unique(va_y[keep])) == 2:
+        thr_d = youden_threshold(va_y[keep], val_p[keep])
+        meta["val_threshold_youden_dedup"] = thr_d
+        dedup = {"n": int(keep.sum()), "n_removed": int((~keep).sum()), "threshold_youden": thr_d,
+                 "at_0.5": binary_metrics(va_y[keep], val_p[keep], 0.5)}
     save_checkpoint(os.path.join(run_dir, "best.pt"), model, meta)
     summary = {
         "run_dir": run_dir, "best_epoch": best["epoch"], "train_time_s": round(time.time() - t0, 1),
         "n_params": count_parameters(model), "n_train": int(len(tr_y)), "n_val": int(len(va_y)),
         "val_at_0.5": binary_metrics(va_y, val_p, 0.5),
         "val_at_youden": binary_metrics(va_y, val_p, thr),
+        "val_dedup": dedup,
         "data_md5": md5sum(cfg.data_path), "config": asdict(cfg), "env": environment_info(),
     }
     np.save(os.path.join(run_dir, "val_scores.npy"), val_p)

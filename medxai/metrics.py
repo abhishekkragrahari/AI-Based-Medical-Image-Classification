@@ -81,6 +81,27 @@ def youden_threshold(y_true, y_score) -> float:
     return float(min(max(t, 0.0), 1.0))
 
 
+def paired_bootstrap_auroc(y_true, score_a, score_b, n_boot: int = 2000, seed: int = 0) -> dict:
+    """AUROC(a) - AUROC(b) on the same cases, with a percentile 95% CI from resampling cases.
+
+    ``p_two_sided`` is the share of resamples on the other side of zero, doubled (a rough
+    bootstrap p-value; prefer the CI).
+    """
+    y, a, b = np.asarray(y_true).astype(int), np.asarray(score_a, float), np.asarray(score_b, float)
+    rng = np.random.default_rng(seed)
+    diffs = []
+    for _ in range(n_boot):
+        idx = rng.integers(0, len(y), len(y))
+        if len(np.unique(y[idx])) < 2:
+            continue
+        diffs.append(roc_auc_score(y[idx], a[idx]) - roc_auc_score(y[idx], b[idx]))
+    d = np.array(diffs)
+    obs = float(roc_auc_score(y, a) - roc_auc_score(y, b))
+    p = 2 * min((d <= 0).mean(), (d >= 0).mean())
+    return {"auroc_diff": obs, "ci95": [float(np.percentile(d, 2.5)), float(np.percentile(d, 97.5))],
+            "p_two_sided": float(min(1.0, p)), "n_boot": int(len(d))}
+
+
 def bootstrap_ci(y_true, y_score, threshold: float = 0.5, n_boot: int = 1000, seed: int = 0,
                  keys=("accuracy", "balanced_accuracy", "auroc", "auprc", "macro_f1")) -> dict:
     """Percentile 95% CIs from resampling test cases with replacement."""
