@@ -22,6 +22,7 @@ scripts/       download_data · validate_data · train · run_experiments · eva
 configs/       small_cnn, resnet18, resnet18_medmnist_protocol, ablations
 tests/         pytest suite (synthetic data only); CI: .github/workflows/tests.yml
 app.py         local Gradio demo
+web/           in-browser demo (engine.js mirrors infer.py + occlusion; demo_template.html)
 reports/       small JSON/PNG outputs (committed); runs/ and data/ are git-ignored
 ```
 
@@ -54,6 +55,11 @@ python -m scripts.final_eval --val-report reports/val_summary.json --final      
 
 python -m scripts.predict --ckpt runs/small_cnn_s0/best.pt --image some_xray.png --explain gradcam --out heat.png
 python app.py --ckpt runs/small_cnn_s0/best.pt                                   # http://127.0.0.1:7860
+
+# Browser demo (no server): export a small CNN run and build one self-contained HTML page
+python -m scripts.export_web_model --run runs/small_cnn_s0 --data data/pneumoniamnist.npz --out web_model.json
+python -m scripts.build_web_demo --model web_model.json --out web/pneumonia-demo.html   # open it in a browser
+# The 'web-demo-model' workflow does both on GitHub Actions.
 ```
 CPU timing on 4 vCPUs: small CNN ≈ 5 s/epoch, ResNet-18 ≈ 48 s/epoch at 28 px (see `MODEL_DESIGN.md`).
 
