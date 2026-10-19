@@ -1,0 +1,107 @@
+{
+ "run_dir": "runs/web_small_cnn_s0",
+ "best_epoch": 25,
+ "train_time_s": 156.7,
+ "n_params": 287138,
+ "n_train": 4708,
+ "n_val": 524,
+ "val_at_0.5": {
+  "n": 524,
+  "threshold": 0.5,
+  "accuracy": 0.9866412213740458,
+  "balanced_accuracy": 0.9813291440540798,
+  "auroc": 0.9975816433399981,
+  "auprc": 0.9992055646394711,
+  "macro_f1": 0.9824959079174044,
+  "ece": 0.012491857949823357,
+  "confusion": {
+   "tn": 131,
+   "fp": 4,
+   "fn": 3,
+   "tp": 386
+  },
+  "per_class": {
+   "normal": {
+    "recall(specificity)": 0.9703703703703703,
+    "precision(npv)": 0.9776119402985075,
+    "f1": 0.9739776951672863,
+    "support": 135
+   },
+   "pneumonia": {
+    "recall(sensitivity)": 0.9922879177377892,
+    "precision(ppv)": 0.9897435897435898,
+    "f1": 0.9910141206675225,
+    "support": 389
+   }
+  }
+ },
+ "val_at_youden": {
+  "n": 524,
+  "threshold": 0.5373516082763672,
+  "accuracy": 0.9866412213740458,
+  "balanced_accuracy": 0.9813291440540798,
+  "auroc": 0.9975816433399981,
+  "auprc": 0.9992055646394711,
+  "macro_f1": 0.9824959079174044,
+  "ece": 0.012491857949823357,
+  "confusion": {
+   "tn": 131,
+   "fp": 4,
+   "fn": 3,
+   "tp": 386
+  },
+  "per_class": {
+   "normal": {
+    "recall(specificity)": 0.9703703703703703,
+    "precision(npv)": 0.9776119402985075,
+    "f1": 0.9739776951672863,
+    "support": 135
+   },
+   "pneumonia": {
+    "recall(sensitivity)": 0.9922879177377892,
+    "precision(ppv)": 0.9897435897435898,
+    "f1": 0.9910141206675225,
+    "support": 389
+   }
+  }
+ },
+ "data_md5": "28209eda62fecd6e6a2d98b1501bb15f",
+ "config": {
+  "data_path": "data/pneumoniamnist.npz",
+  "model": "small_cnn",
+  "model_kwargs": {
+   "width": 32,
+   "dropout": 0.2
+  },
+  "epochs": 40,
+  "batch_size": 128,
+  "lr": 0.001,
+  "weight_decay": 0.0001,
+  "optimizer": "adamw",
+  "scheduler": "cosine",
+  "milestones": [
+   50,
+   75
+  ],
+  "patience": 10,
+  "class_weighting": false,
+  "augment": true,
+  "seed": 0,
+  "num_threads": 0,
+  "out_dir": "runs",
+  "run_name": "web_small_cnn_s0",
+  "max_train_samples": null
+ },
+ "env": {
+  "medxai": "0.1.0",
+  "python": "3.13.16",
+  "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "torch": "2.14.1+cpu",
+  "numpy": "2.5.2",
+  "cuda_available": false,
+  "cpu_count": 4,
+  "torch_threads": 2,
+  "git_commit": "5007c5ccc4ca1387877f1a4b4c47014d5918adb9",
+  "git_dirty": false
+ }
+}
