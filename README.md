@@ -91,6 +91,15 @@ Exact duplicates across splits: train-val 8, train-test 0, val-test 0.
 | small_cnn_classweight | 3 | 0.998 ± 0.001 | 0.999 ± 0.000 | 0.977 ± 0.002 | 0.969 ± 0.019 | 0.985 ± 0.015 | 0.966 ± 0.013 | 0.015 ± 0.000 |
 | small_cnn_noaug | 3 | 0.997 ± 0.001 | 0.999 ± 0.000 | 0.964 ± 0.002 | 0.967 ± 0.032 | 0.960 ± 0.035 | 0.955 ± 0.017 | 0.015 ± 0.006 |
 
+Validation without images that also appear in train (516 images):
+
+| Model | Seeds | AUROC | AUPRC | Bal. acc | Sensitivity | Specificity | Macro F1 | ECE |
+|---|---|---|---|---|---|---|---|---|
+| small_cnn | 3 | 0.998 ± 0.001 | 0.999 ± 0.000 | 0.978 ± 0.003 | 0.990 ± 0.004 | 0.965 ± 0.004 | 0.979 ± 0.004 | 0.013 ± 0.003 |
+| resnet18 | 3 | 0.998 ± 0.001 | 0.999 ± 0.000 | 0.977 ± 0.007 | 0.976 ± 0.006 | 0.978 ± 0.020 | 0.970 ± 0.002 | 0.017 ± 0.001 |
+| small_cnn_classweight | 3 | 0.998 ± 0.001 | 0.999 ± 0.000 | 0.977 ± 0.003 | 0.969 ± 0.020 | 0.985 ± 0.015 | 0.966 ± 0.013 | 0.016 ± 0.001 |
+| small_cnn_noaug | 3 | 0.997 ± 0.001 | 0.999 ± 0.000 | 0.963 ± 0.002 | 0.966 ± 0.032 | 0.960 ± 0.035 | 0.955 ± 0.017 | 0.016 ± 0.006 |
+
 Selected by validation (highest mean val AUROC across seeds): **resnet18**.
 
 ### E1 MedMNIST ResNet-18 protocol (validation split, threshold 0.5, mean ± SD over seeds)
@@ -127,6 +136,29 @@ Test, threshold chosen on val (Youden):
 | resnet18 | 3 | 0.980 ± 0.005 | 0.987 ± 0.004 | 0.874 ± 0.012 | 0.990 ± 0.003 | 0.758 ± 0.024 | 0.890 ± 0.011 | 0.067 ± 0.019 |
 | small_cnn_classweight | 3 | 0.979 ± 0.003 | 0.986 ± 0.003 | 0.889 ± 0.020 | 0.987 ± 0.004 | 0.791 ± 0.035 | 0.903 ± 0.018 | 0.048 ± 0.016 |
 | small_cnn_noaug | 3 | 0.965 ± 0.013 | 0.973 ± 0.014 | 0.857 ± 0.039 | 0.994 ± 0.004 | 0.719 ± 0.082 | 0.875 ± 0.035 | 0.088 ± 0.041 |
+
+Test, threshold chosen on de-duplicated val (Youden):
+
+| Model | Seeds | AUROC | AUPRC | Bal. acc | Sensitivity | Specificity | Macro F1 | ECE |
+|---|---|---|---|---|---|---|---|---|
+| small_cnn | 3 | 0.979 ± 0.005 | 0.984 ± 0.006 | 0.907 ± 0.010 | 0.990 ± 0.008 | 0.823 ± 0.027 | 0.920 ± 0.007 | 0.066 ± 0.005 |
+| resnet18 | 3 | 0.980 ± 0.005 | 0.987 ± 0.004 | 0.874 ± 0.012 | 0.990 ± 0.003 | 0.758 ± 0.024 | 0.890 ± 0.011 | 0.067 ± 0.019 |
+| small_cnn_classweight | 3 | 0.979 ± 0.003 | 0.986 ± 0.003 | 0.889 ± 0.020 | 0.987 ± 0.004 | 0.791 ± 0.035 | 0.903 ± 0.018 | 0.048 ± 0.016 |
+| small_cnn_noaug | 3 | 0.965 ± 0.013 | 0.973 ± 0.014 | 0.857 ± 0.039 | 0.994 ± 0.004 | 0.719 ± 0.082 | 0.875 ± 0.035 | 0.088 ± 0.041 |
+
+Test, seed ensemble (mean score of the seeds), threshold 0.5 (± 0 = single value):
+
+| Model | Seeds | AUROC | AUPRC | Bal. acc | Sensitivity | Specificity | Macro F1 | ECE |
+|---|---|---|---|---|---|---|---|---|
+| small_cnn | ens. | 0.982 ± 0.000 | 0.988 ± 0.000 | 0.883 ± 0.000 | 0.997 ± 0.000 | 0.769 ± 0.000 | 0.901 ± 0.000 | 0.051 ± 0.000 |
+| resnet18 | ens. | 0.982 ± 0.000 | 0.988 ± 0.000 | 0.880 ± 0.000 | 0.995 ± 0.000 | 0.765 ± 0.000 | 0.897 ± 0.000 | 0.052 ± 0.000 |
+| small_cnn_classweight | ens. | 0.983 ± 0.000 | 0.989 ± 0.000 | 0.897 ± 0.000 | 0.987 ± 0.000 | 0.808 ± 0.000 | 0.911 ± 0.000 | 0.040 ± 0.000 |
+| small_cnn_noaug | ens. | 0.976 ± 0.000 | 0.984 ± 0.000 | 0.854 ± 0.000 | 0.995 ± 0.000 | 0.714 ± 0.000 | 0.874 ± 0.000 | 0.057 ± 0.000 |
+
+Paired bootstrap, test AUROC of each seed ensemble minus **resnet18**:
+- small_cnn: -0.0002 (95% CI -0.0053 to +0.0045, bootstrap p ≈ 0.926)
+- small_cnn_classweight: +0.0007 (95% CI -0.0024 to +0.0040, bootstrap p ≈ 0.712)
+- small_cnn_noaug: -0.0059 (95% CI -0.0115 to -0.0008, bootstrap p ≈ 0.024)
 
 Model selected on validation before the test run: **resnet18**.
 
