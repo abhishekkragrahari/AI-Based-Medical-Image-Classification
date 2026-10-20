@@ -1,0 +1,70 @@
+name: e1-medmnist-protocol
+
+# E1: the MedMNIST v2 ResNet-18 (28 px) protocol (configs/resnet18_medmnist_protocol.yaml,
+# 100 epochs). Each seed trains in its own job so no job hits the time limit; a final job
+# evaluates all seeds once on the test split and pushes reports/e1 to results/<run id>.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["claude/**"]
+    paths: [".github/workflows/e1.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      matrix:
+        seed: [0, 1, 2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install -r requirements.txt
+      - run: python -m scripts.download_data --size 28
+      - name: Train seed ${{ matrix.seed }}
+        run: python -m scripts.train --config configs/resnet18_medmnist_protocol.yaml --seed ${{ matrix.seed }} --out-dir runs/e1 --run-name resnet18_medmnist_protocol_s${{ matrix.seed }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: e1-seed-${{ matrix.seed }}
+          path: runs/e1/
+          retention-days: 7
+
+  evaluate:
+    needs: train
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install -r requirements.txt
+      - run: python -m scripts.download_data --size 28
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: e1-seed-*
+          path: runs/e1
+          merge-multiple: true
+      - name: Validation report, one-time test evaluation, Markdown report
+        run: |
+          python -m scripts.aggregate_runs --runs runs/e1/resnet18_medmnist_protocol_s* --name resnet18_medmnist_protocol --config configs/resnet18_medmnist_protocol.yaml --report reports/e1/val_e1.json
+          python -m scripts.final_eval --val-report reports/e1/val_e1.json --final --out reports/e1/test_summary.json
+          python -m scripts.make_report --reports reports/e1
+      - name: Push results to a review branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898244+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "results/${{ github.run_id }}"
+          git add reports/e1
+          git commit -m "Add E1 results from run ${{ github.run_id }}"
+          git push origin "results/${{ github.run_id }}"

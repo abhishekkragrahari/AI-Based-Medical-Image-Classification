@@ -297,3 +297,13 @@ def test_compare_sizes(tmp_path, rng):
     assert r["b_minus_a"]["auroc_diff"] > 0 and "specificity" in r["b_minus_a_at_0.5_ci95"]
     assert compare_sizes.main(["--a", str(tmp_path / "sa.json"), "--a-data", a, "--b", str(tmp_path / "sb.json"),
                                "--b-data", other, "--out", str(out)]) == 1  # different test split
+
+
+def test_aggregate_runs(trained_run, tmp_path):
+    from scripts import aggregate_runs
+
+    out = tmp_path / "v.json"
+    assert aggregate_runs.main(["--runs", trained_run["run_dir"], "--name", "x", "--config", "c.yaml",
+                                "--report", str(out)]) == 0
+    r = json.load(open(out))
+    assert r["_selected"] == "x" and r["x"]["seeds"] == [0] and "val_dedup_at_0.5" in r["x"]
