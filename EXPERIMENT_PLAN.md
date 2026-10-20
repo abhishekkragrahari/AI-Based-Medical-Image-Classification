@@ -23,8 +23,18 @@
 | E8 | Input resolution 64 px (small CNN, class-weighted small CNN) | Does resolution fix the low test specificity? | `python -m scripts.run_all --size 64 --final` (`experiments` workflow, size 64) | Done 2026-10-19 (run 39296675487). Added after the 28 px test results were seen, so its test numbers are a **second look** at the test set |
 | E1b | Paired test comparison: E3 ResNet-18 (this repo's recipe) vs E1 (MedMNIST protocol) seed ensembles | Does the training recipe matter? | `compare-sizes` workflow, second step | Done 2026-10-20 (run 39376661730) → `reports/compare_resnet18_recipe_vs_e1.json` |
 | E8b | Paired 28 px vs 64 px test comparison (small CNN seed ensembles) | Is the 64 px change real? | `python -m scripts.compare_sizes ...` (`compare-sizes` workflow) | Done 2026-10-19 (run 39325733133) → `reports/compare_28_vs_64.json` |
+| E9 | CAM-faithfulness regularisation (CFR) for the small CNN, 28 px, with deletion-only and equivariance-only ablations | Can training make explanations faithful at 28 px without losing accuracy? | `e9-cam-faithfulness` workflow (`scripts.run_experiments` + `scripts.compare_xai`) | Pre-registered 2026-10-20 (below); running |
 
 Pipeline verification on synthetic data (not an experiment): all scripts run end-to-end in `tests/test_pipeline.py`.
+
+## E9 pre-registration (written 2026-10-20, before any E9 run)
+- Motivation: at 28 px the explanations were not better than random deletion (ResNet-18 Grad-CAM deletion AUC 0.751 vs random 0.698, `reports/xai_resnet18_val`); at 64 px Grad-CAM and occlusion were (`reports/size64/xai_small_cnn_val`).
+- Method (`medxai/faithful.py`): loss = CE + 1.0 x deletion loss + 0.5 x equivariance loss. Deletion loss: remove the top 20% pixels of the true-class CAM (filled with a 5x5 blurred copy) and penalise `relu(p_y - 0.5)`. Equivariance loss: L1 between the CAM of the augmented image and the augmented CAM of the clean image. Weights fixed a priori, not tuned. Related work: GAIN (Li et al., CVPR 2018), SEAM (Wang et al., CVPR 2020); novelty is a hypothesis pending a literature search.
+- Groups (3 seeds each, same recipe as `configs/small_cnn.yaml`): baseline `small_cnn`, `small_cnn_cfr`, `small_cnn_cfr_del`, `small_cnn_cfr_eq`.
+- Primary endpoint (validation, all 524 images): Grad-CAM deletion gap = random deletion AUC - Grad-CAM deletion AUC (fill 0, as in E5), averaged over seeds, CFR minus baseline, paired bootstrap 95% CI over images. H1 supported if the CI is above 0.
+- Guard against circularity: Grad-CAM is what CFR trains, so occlusion and Integrated Gradients gaps are reported as independent secondary checks; training fill (blur) differs from evaluation fill (0) so the model cannot simply learn to react to the fill; random deletion AUC itself is reported per group.
+- Non-inferiority: seed-ensemble val AUROC difference (CFR - baseline) with 95% CI lower bound above -0.01. Secondary: specificity, sensitivity, balanced accuracy at 0.5, border mass.
+- Test: one comparison only, `cfr` vs `baseline`, same metrics, run in the same workflow after the validation step; no decision is changed after seeing it. This is a further look at a test set that E7/E8/E1b already used, which is a limitation.
 
 ## Metrics
 AUROC, AUPRC, accuracy, balanced accuracy, sensitivity, specificity, per-class precision/recall/F1, confusion matrix, ECE (10 bins), percentile bootstrap 95% CI (1,000 resamples of test cases).

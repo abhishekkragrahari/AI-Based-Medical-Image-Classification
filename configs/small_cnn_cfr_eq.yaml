@@ -1,0 +1,15 @@
+# E9 ablation: equivariance loss only. Same recipe as configs/small_cnn.yaml;
+# weights fixed a priori (EXPERIMENT_PLAN.md, E9), not tuned.
+data_path: data/pneumoniamnist.npz
+model: small_cnn
+model_kwargs: {width: 32, dropout: 0.2}
+epochs: 40
+batch_size: 128
+lr: 0.001
+weight_decay: 0.0001
+patience: 10
+class_weighting: false
+augment: true
+cam_del_weight: 0.0
+cam_eq_weight: 0.5
+cam_del_frac: 0.2
