@@ -24,6 +24,10 @@ Update this file after each meaningful work session. Record actual outcomes only
 - [x] README updated with script-generated results and their interpretation
 
 ## Session log
+### 2026-10-20 — E1: MedMNIST v2 benchmark comparison
+- Added `scripts/aggregate_runs.py` and the `e1-medmnist-protocol` workflow (one job per seed, then a one-time test evaluation). Run 39362050921: ≈2.6 h per seed; test AUROC 0.949 ± 0.011, accuracy 0.868 ± 0.026, vs published ResNet-18 (28) 0.944 / 0.854 (arXiv 2110.14795).
+- Paired comparison (compare run 39376661730): this repo's ResNet-18 recipe minus E1, AUROC +0.022 (95% CI +0.012 to +0.034); copied from the job log to `reports/compare_resnet18_recipe_vs_e1.json`.
+
 ### 2026-10-19 — Stronger results: 64 px, paired tests, de-duplicated val
 - Added `run_all --size` (and the `size` input of the `experiments` workflow), validation metrics/threshold without train duplicates, seed ensembles and a paired bootstrap of AUROC differences in `final_eval`, and `scripts/compare_sizes.py` (+ `compare-sizes` workflow). `python -m pytest -q` → 45 passed.
 - Run 39296675487 (64 px, small CNN ×2 configs × 3 seeds, ~1 h 25 min): test specificity 0.870 ± 0.071 vs 0.751 ± 0.024 at 28 px; paired ensemble difference +0.099 (95% CI +0.058 to +0.141); AUROC difference +0.003 (CI −0.004 to +0.011). Occlusion and Grad-CAM now beat random deletion. Second look at the test set (decided after the 28 px results).

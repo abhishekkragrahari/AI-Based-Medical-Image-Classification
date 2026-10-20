@@ -5,7 +5,7 @@ A reproducible, CPU-friendly pipeline for **binary chest X-ray classification (n
 
 ## Project status (2026-10-19)
 - **Implemented and tested** (39 tests pass on synthetic data): data validation and leakage audit, small CNN and ResNet-18, training with validation-only selection, test evaluation gated behind `--final`, class-wise metrics with bootstrap CIs and calibration, XAI methods and quality metrics, CLI and Gradio inference with input validation.
-- **Run on real data (2026-10-18):** E0, E2–E4, E5 and the one-time E7 test evaluation were run by the `experiments` GitHub Actions workflow (run 39142842061, CPU runner, 3 seeds). Results below are generated from `reports/*.json`. E1 (MedMNIST ResNet-18 protocol) has not been run yet.
+- **Run on real data (2026-10-18):** E0, E2–E4, E5 and the one-time E7 test evaluation were run by the `experiments` GitHub Actions workflow (run 39142842061, CPU runner, 3 seeds). Results below are generated from `reports/*.json`. E1 (MedMNIST ResNet-18 protocol) was run on 2026-10-20 (see [Comparison with the MedMNIST v2 benchmark](#comparison-with-the-medmnist-v2-benchmark)).
 - **Follow-up (2026-10-19):** E8 trained the small CNNs on 64 px images (run 39296675487) and E8b compared 28 px and 64 px on the same test images (see [Higher resolution](#higher-resolution-64-px-second-look-at-the-test-set)). A re-run of the 28 px pipeline (run 39296680857) reproduced the per-run test results exactly. An in-browser demo is in `web/`.
 
 ## Goals
@@ -104,7 +104,17 @@ Validation without images that also appear in train (516 images):
 Selected by validation (highest mean val AUROC across seeds): **resnet18**.
 
 ### E1 MedMNIST ResNet-18 protocol (validation split, threshold 0.5, mean ± SD over seeds)
-Not run yet.
+| Model | Seeds | AUROC | AUPRC | Bal. acc | Sensitivity | Specificity | Macro F1 | ECE |
+|---|---|---|---|---|---|---|---|---|
+| resnet18_medmnist_protocol | 3 | 0.996 ± 0.000 | 0.999 ± 0.000 | 0.966 ± 0.005 | 0.974 ± 0.016 | 0.958 ± 0.026 | 0.961 ± 0.006 | 0.023 ± 0.006 |
+
+Validation without images that also appear in train (516 images):
+
+| Model | Seeds | AUROC | AUPRC | Bal. acc | Sensitivity | Specificity | Macro F1 | ECE |
+|---|---|---|---|---|---|---|---|---|
+| resnet18_medmnist_protocol | 3 | 0.996 ± 0.000 | 0.999 ± 0.000 | 0.966 ± 0.005 | 0.974 ± 0.016 | 0.958 ± 0.026 | 0.961 ± 0.006 | 0.023 ± 0.006 |
+
+Selected by validation (single configuration): **resnet18_medmnist_protocol**.
 
 ### E5 Explanation quality (validation split)
 
@@ -177,6 +187,22 @@ Interpretation of the numbers above (all from `reports/`; n = 3 seeds per model;
 - **Ablations.** Removing augmentation lowered test AUROC (0.965 ± 0.013) and increased variance. Class weighting gave the highest test specificity at 0.5 (0.809 ± 0.035); this is an observation on the test set and was not used for selection.
 - **Calibration and threshold.** Test ECE (≈0.05–0.09) is several times the val ECE (≈0.015). The val-chosen Youden threshold helped the small CNN (balanced accuracy 0.875 → 0.907) but not ResNet-18.
 - **Explanations (ResNet-18, val, 100 images).** Occlusion has a lower deletion AUC than random deletion (0.555 vs 0.698), i.e. it ranks pixels the model relies on; Grad-CAM (0.751) and Integrated Gradients (0.695) do not beat random deletion at 28 px. Border mass is below the uniform reference (0.383) for all methods, so there is no sign of reliance on image borders. Agreement between seeds is low (top-10% IoU 0.25–0.45), so a single heatmap should not be read as *the* model's reasoning.
+
+## Comparison with the MedMNIST v2 benchmark
+E1 re-ran the MedMNIST v2 ResNet-18 (28) recipe (Adam, lr 1e-3, batch 128, 100 epochs, lr × 0.1 at 50 and 75, no augmentation, checkpoint chosen on val; `configs/resnet18_medmnist_protocol.yaml`; 3 seeds; `reports/e1/`). It was planned from the start (EXPERIMENT_PLAN.md) and its test split was evaluated once.
+
+| PneumoniaMNIST test | AUROC | Accuracy |
+|---|---|---|
+| ResNet-18 (28), published in MedMNIST v2 (Yang et al. 2023) | 0.944 | 0.854 |
+| ResNet-18 (224), published in MedMNIST v2 | 0.956 | 0.864 |
+| E1: our re-run of the ResNet-18 (28) recipe, mean ± SD of 3 seeds | 0.949 ± 0.011 | 0.868 ± 0.026 |
+| E3: ResNet-18 (28), this repo's recipe | 0.980 ± 0.005 | 0.902 ± 0.028 |
+| E2: small CNN (28), this repo's recipe | 0.979 ± 0.005 | 0.905 ± 0.006 |
+| E8: small CNN (64), second look at test | 0.982 ± 0.003 | 0.934 ± 0.006 |
+
+- E1 reproduces the published ResNet-18 (28) numbers within seed variation, so the evaluation setup matches the benchmark's.
+- With the same architecture, this repo's recipe (augmentation, AdamW + cosine schedule, early stopping on val AUROC) beats the benchmark recipe: paired bootstrap on the seed ensembles, AUROC +0.022 (95% CI +0.012 to +0.034), specificity at 0.5 +0.085 (CI +0.033 to +0.141), balanced accuracy +0.044 (CI +0.018 to +0.071) (`reports/compare_resnet18_recipe_vs_e1.json`). Removing augmentation alone also hurt (E4, no augmentation), so augmentation is a likely main factor, but E1 differs from E3 in several settings at once.
+- Published numbers are from a different implementation; only the E1 vs E3 comparison is paired on the same test images.
 
 ## Higher resolution (64 px, second look at the test set)
 The low test specificity at 28 px raised the question of whether 28 × 28 px simply throws away too much detail. E8 re-ran the small CNN and the class-weighted small CNN on the official 64 px PneumoniaMNIST files (same splits, same configs, 3 seeds each; ResNet-18 was skipped because it is too slow on a CPU runner at 64 px). Selection again used validation only (small CNN). **This experiment was added after the 28 px test results were known, so its test numbers are a second look at the test set and are reported as such.** Full tables: `reports/size64/RESULTS.md`.

@@ -31,7 +31,17 @@ Validation without images that also appear in train (516 images):
 Selected by validation (highest mean val AUROC across seeds): **resnet18**.
 
 ### E1 MedMNIST ResNet-18 protocol (validation split, threshold 0.5, mean ± SD over seeds)
-Not run yet.
+| Model | Seeds | AUROC | AUPRC | Bal. acc | Sensitivity | Specificity | Macro F1 | ECE |
+|---|---|---|---|---|---|---|---|---|
+| resnet18_medmnist_protocol | 3 | 0.996 ± 0.000 | 0.999 ± 0.000 | 0.966 ± 0.005 | 0.974 ± 0.016 | 0.958 ± 0.026 | 0.961 ± 0.006 | 0.023 ± 0.006 |
+
+Validation without images that also appear in train (516 images):
+
+| Model | Seeds | AUROC | AUPRC | Bal. acc | Sensitivity | Specificity | Macro F1 | ECE |
+|---|---|---|---|---|---|---|---|---|
+| resnet18_medmnist_protocol | 3 | 0.996 ± 0.000 | 0.999 ± 0.000 | 0.966 ± 0.005 | 0.974 ± 0.016 | 0.958 ± 0.026 | 0.961 ± 0.006 | 0.023 ± 0.006 |
+
+Selected by validation (single configuration): **resnet18_medmnist_protocol**.
 
 ### E5 Explanation quality (validation split)
 

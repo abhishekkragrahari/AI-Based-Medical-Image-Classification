@@ -1,0 +1,87 @@
+{
+ "model": "resnet18_medmnist_protocol",
+ "b_model": "resnet18",
+ "a": "reports/e1/test_scores.json",
+ "b": "reports/test_scores.json",
+ "n_test": 624,
+ "a_at_0.5": {
+  "n": 624,
+  "threshold": 0.5,
+  "accuracy": 0.875,
+  "balanced_accuracy": 0.8358974358974359,
+  "auroc": 0.9601084812623274,
+  "auprc": 0.9657807754505753,
+  "macro_f1": 0.8557405036278276,
+  "ece": 0.083230642552251,
+  "confusion": {
+   "tn": 159,
+   "fp": 75,
+   "fn": 3,
+   "tp": 387
+  },
+  "per_class": {
+   "normal": {
+    "recall(specificity)": 0.6794871794871795,
+    "precision(npv)": 0.9814814814814815,
+    "f1": 0.803030303030303,
+    "support": 234
+   },
+   "pneumonia": {
+    "recall(sensitivity)": 0.9923076923076923,
+    "precision(ppv)": 0.8376623376623377,
+    "f1": 0.9084507042253521,
+    "support": 390
+   }
+  }
+ },
+ "b_at_0.5": {
+  "n": 624,
+  "threshold": 0.5,
+  "accuracy": 0.9086538461538461,
+  "balanced_accuracy": 0.8799145299145299,
+  "auroc": 0.9823526188910803,
+  "auprc": 0.9883342895483194,
+  "macro_f1": 0.8971116157306296,
+  "ece": 0.05225856367743201,
+  "confusion": {
+   "tn": 179,
+   "fp": 55,
+   "fn": 2,
+   "tp": 388
+  },
+  "per_class": {
+   "normal": {
+    "recall(specificity)": 0.7649572649572649,
+    "precision(npv)": 0.988950276243094,
+    "f1": 0.8626506024096385,
+    "support": 234
+   },
+   "pneumonia": {
+    "recall(sensitivity)": 0.9948717948717949,
+    "precision(ppv)": 0.8758465011286681,
+    "f1": 0.9315726290516206,
+    "support": 390
+   }
+  }
+ },
+ "b_minus_a": {
+  "auroc_diff": 0.02224413762875288,
+  "ci95": [
+   0.011605913782939042,
+   0.03438473080535535
+  ],
+  "p_two_sided": 0.0,
+  "n_boot": 2000
+ },
+ "b_minus_a_at_0.5_ci95": {
+  "specificity": [
+   0.033054450226167396,
+   0.14091200466200463
+  ],
+  "balanced_accuracy": [
+   0.017937393890300687,
+   0.07131009726790731
+  ]
+ },
+ "_source": "printed by scripts.compare_sizes in GitHub Actions run 39376661730 (job 118476215897), copied from the job log"
+}

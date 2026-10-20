@@ -13,7 +13,7 @@
 | ID | Experiment | Purpose | Command | Status |
 |---|---|---|---|---|
 | E0 | Data validation and leakage audit | Establish data integrity | `python -m scripts.validate_data --out reports/data_validation_28.json` | Done (2026-10-18, Actions run 39142842061) |
-| E1 | Re-run of MedMNIST v2 ResNet-18 (28) protocol | Verify starting point | `python -m scripts.run_experiments --configs configs/resnet18_medmnist_protocol.yaml --report reports/val_e1.json` | Not run yet (≈4 h CPU; `experiments` workflow with `include_e1`) |
+| E1 | Re-run of MedMNIST v2 ResNet-18 (28) protocol | Verify starting point | `python -m scripts.run_experiments --configs configs/resnet18_medmnist_protocol.yaml --report reports/val_e1.json` | Done 2026-10-20 (`e1-medmnist-protocol` workflow run 39362050921, one job per seed, ≈2.6 h each) → `reports/e1/` |
 | E2 | Small CNN baseline | Reference performance | `python -m scripts.run_experiments --configs configs/small_cnn.yaml configs/resnet18.yaml configs/small_cnn_classweight.yaml configs/small_cnn_noaug.yaml --report reports/val_summary.json` | Done |
 | E3 | ResNet-18 (same recipe as E2) | Controlled model comparison | (same command as E2) | Done |
 | E4 | Ablations: (a) class weighting, (b) no augmentation | Test contribution of each training choice | (same command as E2) | Done |
@@ -21,6 +21,7 @@
 | E6 | Robustness / cross-domain | Generalisation | Not feasible: no external dataset available; noise-perturbation stability is covered in E5 | Not planned |
 | E7 | Final held-out evaluation | Unbiased assessment | `python -m scripts.final_eval --val-report reports/val_summary.json --final` | Done once (2026-10-18); re-run 2026-10-19 (run 39296680857) with identical per-run results, adding seed ensembles and paired bootstrap |
 | E8 | Input resolution 64 px (small CNN, class-weighted small CNN) | Does resolution fix the low test specificity? | `python -m scripts.run_all --size 64 --final` (`experiments` workflow, size 64) | Done 2026-10-19 (run 39296675487). Added after the 28 px test results were seen, so its test numbers are a **second look** at the test set |
+| E1b | Paired test comparison: E3 ResNet-18 (this repo's recipe) vs E1 (MedMNIST protocol) seed ensembles | Does the training recipe matter? | `compare-sizes` workflow, second step | Done 2026-10-20 (run 39376661730) → `reports/compare_resnet18_recipe_vs_e1.json` |
 | E8b | Paired 28 px vs 64 px test comparison (small CNN seed ensembles) | Is the 64 px change real? | `python -m scripts.compare_sizes ...` (`compare-sizes` workflow) | Done 2026-10-19 (run 39325733133) → `reports/compare_28_vs_64.json` |
 
 Pipeline verification on synthetic data (not an experiment): all scripts run end-to-end in `tests/test_pipeline.py`.

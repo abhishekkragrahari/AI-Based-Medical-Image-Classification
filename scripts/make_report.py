@@ -142,7 +142,8 @@ def build(reports_dir):
         *data_section(_load(next(iter(sorted(glob.glob(os.path.join(reports_dir, "data_validation_*.json")))),
                                 ""))), "",
         *val_section(_load(os.path.join(reports_dir, "val_summary.json")), "E2–E4 Model comparison"), "",
-        *val_section(_load(os.path.join(reports_dir, "val_e1.json")), "E1 MedMNIST ResNet-18 protocol"), "",
+        *val_section(_load(os.path.join(reports_dir, "val_e1.json"))
+                     or _load(os.path.join(reports_dir, "e1", "val_e1.json")), "E1 MedMNIST ResNet-18 protocol"), "",
         *xai_section(reports_dir), "",
         *test_section(_load(os.path.join(reports_dir, "test_summary.json"))),
     ]
