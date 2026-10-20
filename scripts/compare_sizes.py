@@ -1,4 +1,5 @@
-"""Paired comparison of two final test evaluations (e.g. 28 px vs 64 px) on the same test images.
+"""Paired comparison of two final test evaluations (e.g. 28 px vs 64 px, or two training
+recipes) on the same test images.
 
 Reads the seed-ensemble scores that final_eval writes to test_scores.json and the
 test labels from the data file, then reports a paired bootstrap of the AUROC
@@ -28,6 +29,7 @@ def main(argv=None):
     ap.add_argument("--b", required=True)
     ap.add_argument("--b-data", required=True)
     ap.add_argument("--model", default="small_cnn")
+    ap.add_argument("--b-model", help="configuration name in --b if it differs from --model")
     ap.add_argument("--n-boot", type=int, default=2000)
     ap.add_argument("--out", default="reports/compare_28_vs_64.json")
     a = ap.parse_args(argv)
@@ -37,8 +39,8 @@ def main(argv=None):
               file=sys.stderr)
         return 1
     pa = np.array(json.load(open(a.a))["scores"][a.model])
-    pb = np.array(json.load(open(a.b))["scores"][a.model])
-    out = {"model": a.model, "a": a.a, "b": a.b, "n_test": int(len(ya)),
+    pb = np.array(json.load(open(a.b))["scores"][a.b_model or a.model])
+    out = {"model": a.model, "b_model": a.b_model or a.model, "a": a.a, "b": a.b, "n_test": int(len(ya)),
            "a_at_0.5": binary_metrics(ya, pa, 0.5), "b_at_0.5": binary_metrics(ya, pb, 0.5),
            "b_minus_a": paired_bootstrap_auroc(ya, pb, pa, n_boot=a.n_boot)}
     # Paired bootstrap of the specificity and balanced-accuracy differences at 0.5.

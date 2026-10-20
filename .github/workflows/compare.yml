@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
   push:
     branches: ["claude/**"]
-    paths: ["reports/test_scores.json"]  # runs once the 28 px ensemble scores land
+    paths: ["reports/test_scores.json", "reports/e1/test_scores.json"]  # runs when new ensemble scores land
 
 permissions:
   contents: read
@@ -30,8 +30,11 @@ jobs:
         run: python -m scripts.download_data --size 28 && python -m scripts.download_data --size 64
       - name: Compare
         run: python -m scripts.compare_sizes --a reports/test_scores.json --a-data data/pneumoniamnist.npz --b reports/size64/test_scores.json --b-data data/pneumoniamnist_64.npz
+      - name: Compare training recipes (ResNet-18, this repo vs MedMNIST protocol E1)
+        if: hashFiles('reports/e1/test_scores.json') != ''
+        run: python -m scripts.compare_sizes --a reports/e1/test_scores.json --a-data data/pneumoniamnist.npz --model resnet18_medmnist_protocol --b reports/test_scores.json --b-data data/pneumoniamnist.npz --b-model resnet18 --out reports/compare_resnet18_recipe_vs_e1.json
       - uses: actions/upload-artifact@v4
         with:
           name: compare-${{ github.run_id }}
-          path: reports/compare_28_vs_64.json
+          path: reports/compare_*.json
           retention-days: 14
