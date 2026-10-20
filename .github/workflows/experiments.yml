@@ -8,6 +8,11 @@ name: experiments
 on:
   workflow_dispatch:
     inputs:
+      size:
+        description: "Image size in px (64/128/224 run the small CNN configs only; outputs in reports/size<N>)"
+        type: choice
+        options: ["28", "64", "128", "224"]
+        default: "28"
       include_e1:
         description: "Also run the long MedMNIST ResNet-18 protocol (E1, several hours on CPU)"
         type: boolean
@@ -36,7 +41,7 @@ jobs:
         run: python -m pytest -q
       - name: Full pipeline (E0-E7)
         shell: bash  # -eo pipefail, so a failing step is not hidden by tee
-        run: python -m scripts.run_all --final ${{ inputs.include_e1 && '--include-e1' || '' }} 2>&1 | tee reports_run.log
+        run: python -m scripts.run_all --final --size ${{ inputs.size || '28' }} ${{ inputs.include_e1 && '--include-e1' || '' }} 2>&1 | tee reports_run.log
       - name: Upload run logs and checkpoints (temporary)
         if: always()
         uses: actions/upload-artifact@v4

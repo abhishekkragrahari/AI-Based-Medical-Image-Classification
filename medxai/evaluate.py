@@ -40,6 +40,8 @@ def evaluate_checkpoint(ckpt_path: str, data_path: str, split: str = "val", fina
         "inference_seconds_total": round(infer_s, 3),
         "at_0.5": binary_metrics(labels, p, 0.5),
         "at_val_youden": binary_metrics(labels, p, thr_y),
+        **({"at_val_youden_dedup": binary_metrics(labels, p, meta["val_threshold_youden_dedup"])}
+           if "val_threshold_youden_dedup" in meta else {}),
         "ci95_at_0.5": bootstrap_ci(labels, p, 0.5, n_boot=n_boot) if n_boot else {},
     }
     if save:

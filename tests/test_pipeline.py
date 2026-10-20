@@ -216,6 +216,8 @@ def test_run_all_and_report(synth_npz, tmp_path):
     assert (reports / "test_summary.json").exists()
     text = (reports / "RESULTS.md").read_text()
     assert "threshold chosen on val" in text and "Selected by validation" in text
+    assert "seed ensemble" in text and (reports / "test_scores.json").exists()
+    assert "de-duplicated val" in text
 
     readme = tmp_path / "README.md"
     readme.write_text(f"# x\n{make_report.START}\nPLACEHOLDER\n{make_report.END}\nafter\n")
@@ -233,3 +235,75 @@ def test_report_with_no_results(tmp_path):
 
     assert make_report.main(["--reports", str(tmp_path / "empty"), "--out", str(tmp_path / "r.md")]) == 0
     assert (tmp_path / "r.md").read_text().count("Not run yet") == 5
+
+
+def test_run_all_larger_size(tmp_path):
+    """--size picks the matching data file name and keeps outputs separate from the 28 px ones."""
+    import yaml
+
+    from medxai.data import make_synthetic_npz
+    from scripts import run_all
+
+    data = tmp_path / "data"
+    data.mkdir()
+    make_synthetic_npz(str(data / "pneumoniamnist_64.npz"), size=64, counts=(40, 16, 16))
+    cfg = tmp_path / "tiny.yaml"
+    cfg.write_text(yaml.safe_dump({"model": "small_cnn", "model_kwargs": {"width": 8}, "epochs": 1,
+                                   "batch_size": 32}))
+    reports = tmp_path / "reports"
+    os.chdir(tmp_path)  # default data path data/pneumoniamnist_64.npz is relative
+    try:
+        assert run_all.main(["--size", "64", "--synthetic", "--quick", "--configs", str(cfg),
+                             "--runs-dir", str(tmp_path / "runs"), "--reports-dir", str(reports)]) == 0
+    finally:
+        os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    v = json.load(open(reports / "data_validation_64.json"))
+    assert v["file"] == "pneumoniamnist_64.npz"
+    assert "pneumoniamnist_64.npz" in (reports / "RESULTS.md").read_text()
+
+
+def test_paired_bootstrap_and_dedup(rng):
+    from medxai.data import train_duplicate_mask
+    from medxai.metrics import paired_bootstrap_auroc
+
+    tr = rng.integers(0, 255, (5, 4, 4), dtype=np.uint8)
+    va = np.concatenate([tr[:2], rng.integers(0, 255, (3, 4, 4), dtype=np.uint8)])
+    assert train_duplicate_mask(tr, va).tolist() == [True, True, False, False, False]
+    y = rng.integers(0, 2, 200)
+    good, noise = y + rng.normal(0, 0.3, 200), rng.normal(0, 1, 200)
+    d = paired_bootstrap_auroc(y, good, noise, n_boot=300)
+    assert d["auroc_diff"] > 0.3 and d["ci95"][0] > 0 and d["p_two_sided"] < 0.01
+    same = paired_bootstrap_auroc(y, good, good, n_boot=50)
+    assert same["auroc_diff"] == 0 and same["ci95"] == [0.0, 0.0]
+
+
+def test_compare_sizes(tmp_path, rng):
+    from medxai.data import make_synthetic_npz
+    from scripts import compare_sizes
+
+    a = make_synthetic_npz(str(tmp_path / "a.npz"), counts=(10, 10, 40))
+    b = make_synthetic_npz(str(tmp_path / "b.npz"), counts=(10, 10, 40))
+    other = make_synthetic_npz(str(tmp_path / "o.npz"), counts=(10, 10, 41))
+    from medxai.data import load_npz
+
+    y = load_npz(a)["test"][1]
+    for name, noise in (("sa.json", 2.0), ("sb.json", 0.2)):
+        s = np.clip(y + rng.normal(0, noise, len(y)), 0, 1)
+        (tmp_path / name).write_text(json.dumps({"scores": {"small_cnn": s.tolist()}}))
+    out = tmp_path / "c.json"
+    assert compare_sizes.main(["--a", str(tmp_path / "sa.json"), "--a-data", a, "--b", str(tmp_path / "sb.json"),
+                               "--b-data", b, "--n-boot", "100", "--out", str(out)]) == 0
+    r = json.load(open(out))
+    assert r["b_minus_a"]["auroc_diff"] > 0 and "specificity" in r["b_minus_a_at_0.5_ci95"]
+    assert compare_sizes.main(["--a", str(tmp_path / "sa.json"), "--a-data", a, "--b", str(tmp_path / "sb.json"),
+                               "--b-data", other, "--out", str(out)]) == 1  # different test split
+
+
+def test_aggregate_runs(trained_run, tmp_path):
+    from scripts import aggregate_runs
+
+    out = tmp_path / "v.json"
+    assert aggregate_runs.main(["--runs", trained_run["run_dir"], "--name", "x", "--config", "c.yaml",
+                                "--report", str(out)]) == 0
+    r = json.load(open(out))
+    assert r["_selected"] == "x" and r["x"]["seeds"] == [0] and "val_dedup_at_0.5" in r["x"]

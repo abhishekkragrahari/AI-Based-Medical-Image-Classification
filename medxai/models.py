@@ -26,11 +26,21 @@ class SmallCNN(nn.Module):
         self.head = nn.Sequential(nn.AdaptiveAvgPool2d(1), nn.Flatten(), nn.Dropout(dropout),
                                   nn.Linear(4 * width, num_classes))
 
+    def features(self, x):
+        """Last conv feature map (B x 4*width x H/4 x W/4), the Grad-CAM layer's output."""
+        return self.block3(self.pool(self.block2(self.pool(self.block1(x)))))
+
     def forward(self, x):
-        x = self.pool(self.block1(x))
-        x = self.pool(self.block2(x))
-        x = self.block3(x)
-        return self.head(x)
+        return self.head(self.features(x))
+
+    def cam(self, feats, cls):
+        """Class activation maps (Zhou et al., CVPR 2016) for class indices ``cls`` (B,).
+
+        With global average pooling + one linear layer, logit = mean(CAM) + bias, so this is
+        exact and differentiable (Grad-CAM gives the same map up to a positive scale).
+        """
+        w = self.head[-1].weight[cls]  # B x K
+        return torch.einsum("bkhw,bk->bhw", feats, w)
 
     @property
     def gradcam_layer(self) -> nn.Module:

@@ -1,0 +1,40 @@
+name: compare-sizes
+
+# Paired test comparison of the 28 px and 64 px final evaluations (scripts/compare_sizes.py).
+# Needs only the data files and the committed seed-ensemble scores; no training.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["claude/**"]
+    paths: ["reports/test_scores.json", "reports/e1/test_scores.json"]  # runs when new ensemble scores land
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install CPU-only PyTorch
+        run: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      - name: Install requirements
+        run: pip install -r requirements.txt
+      - name: Download data (28 and 64 px)
+        run: python -m scripts.download_data --size 28 && python -m scripts.download_data --size 64
+      - name: Compare
+        run: python -m scripts.compare_sizes --a reports/test_scores.json --a-data data/pneumoniamnist.npz --b reports/size64/test_scores.json --b-data data/pneumoniamnist_64.npz
+      - name: Compare training recipes (ResNet-18, this repo vs MedMNIST protocol E1)
+        if: hashFiles('reports/e1/test_scores.json') != ''
+        run: python -m scripts.compare_sizes --a reports/e1/test_scores.json --a-data data/pneumoniamnist.npz --model resnet18_medmnist_protocol --b reports/test_scores.json --b-data data/pneumoniamnist.npz --b-model resnet18 --out reports/compare_resnet18_recipe_vs_e1.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compare-${{ github.run_id }}
+          path: reports/compare_*.json
+          retention-days: 14

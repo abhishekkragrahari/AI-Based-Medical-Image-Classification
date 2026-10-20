@@ -3,9 +3,11 @@
 ## Overview
 A reproducible, CPU-friendly pipeline for **binary chest X-ray classification (normal vs pneumonia)** on [PneumoniaMNIST](https://github.com/MedMNIST/MedMNIST) (MedMNIST v2), with explainability (Grad-CAM, Integrated Gradients, occlusion) and checks on explanation quality. The starting point is the official MedMNIST repository (Apache-2.0); see `REPOSITORY_ANALYSIS.md`.
 
-## Project status (2026-10-18)
+## Project status (2026-10-19)
 - **Implemented and tested** (39 tests pass on synthetic data): data validation and leakage audit, small CNN and ResNet-18, training with validation-only selection, test evaluation gated behind `--final`, class-wise metrics with bootstrap CIs and calibration, XAI methods and quality metrics, CLI and Gradio inference with input validation.
-- **Run on real data (2026-10-18):** E0, E2–E4, E5 and the one-time E7 test evaluation were run by the `experiments` GitHub Actions workflow (run 39142842061, CPU runner, 3 seeds). Results below are generated from `reports/*.json`. E1 (MedMNIST ResNet-18 protocol) has not been run yet.
+- **Run on real data (2026-10-18):** E0, E2–E4, E5 and the one-time E7 test evaluation were run by the `experiments` GitHub Actions workflow (run 39142842061, CPU runner, 3 seeds). Results below are generated from `reports/*.json`. E1 (MedMNIST ResNet-18 protocol) was run on 2026-10-20 (see [Comparison with the MedMNIST v2 benchmark](#comparison-with-the-medmnist-v2-benchmark)).
+- **New method test (2026-10-20):** E9 tried CAM-faithfulness regularisation; its pre-registered hypothesis was not supported (see [New method test](#new-method-test-cam-faithfulness-regularisation-e9-negative-primary-result)).
+- **Follow-up (2026-10-19):** E8 trained the small CNNs on 64 px images (run 39296675487) and E8b compared 28 px and 64 px on the same test images (see [Higher resolution](#higher-resolution-64-px-second-look-at-the-test-set)). A re-run of the 28 px pipeline (run 39296680857) reproduced the per-run test results exactly. An in-browser demo is in `web/`.
 
 ## Goals
 - Reproduce a clearly defined baseline (MedMNIST v2 ResNet-18 protocol, E1).
@@ -22,6 +24,7 @@ scripts/       download_data · validate_data · train · run_experiments · eva
 configs/       small_cnn, resnet18, resnet18_medmnist_protocol, ablations
 tests/         pytest suite (synthetic data only); CI: .github/workflows/tests.yml
 app.py         local Gradio demo
+web/           in-browser demo (engine.js mirrors infer.py + occlusion; demo_template.html)
 reports/       small JSON/PNG outputs (committed); runs/ and data/ are git-ignored
 ```
 
@@ -54,6 +57,11 @@ python -m scripts.final_eval --val-report reports/val_summary.json --final      
 
 python -m scripts.predict --ckpt runs/small_cnn_s0/best.pt --image some_xray.png --explain gradcam --out heat.png
 python app.py --ckpt runs/small_cnn_s0/best.pt                                   # http://127.0.0.1:7860
+
+# Browser demo (no server): export a small CNN run and build one self-contained HTML page
+python -m scripts.export_web_model --run runs/small_cnn_s0 --data data/pneumoniamnist.npz --out web_model.json
+python -m scripts.build_web_demo --model web_model.json --out web/pneumonia-demo.html   # open it in a browser
+# The 'web-demo-model' workflow does both on GitHub Actions.
 ```
 CPU timing on 4 vCPUs: small CNN ≈ 5 s/epoch, ResNet-18 ≈ 48 s/epoch at 28 px (see `MODEL_DESIGN.md`).
 
@@ -85,10 +93,29 @@ Exact duplicates across splits: train-val 8, train-test 0, val-test 0.
 | small_cnn_classweight | 3 | 0.998 ± 0.001 | 0.999 ± 0.000 | 0.977 ± 0.002 | 0.969 ± 0.019 | 0.985 ± 0.015 | 0.966 ± 0.013 | 0.015 ± 0.000 |
 | small_cnn_noaug | 3 | 0.997 ± 0.001 | 0.999 ± 0.000 | 0.964 ± 0.002 | 0.967 ± 0.032 | 0.960 ± 0.035 | 0.955 ± 0.017 | 0.015 ± 0.006 |
 
+Validation without images that also appear in train (516 images):
+
+| Model | Seeds | AUROC | AUPRC | Bal. acc | Sensitivity | Specificity | Macro F1 | ECE |
+|---|---|---|---|---|---|---|---|---|
+| small_cnn | 3 | 0.998 ± 0.001 | 0.999 ± 0.000 | 0.978 ± 0.003 | 0.990 ± 0.004 | 0.965 ± 0.004 | 0.979 ± 0.004 | 0.013 ± 0.003 |
+| resnet18 | 3 | 0.998 ± 0.001 | 0.999 ± 0.000 | 0.977 ± 0.007 | 0.976 ± 0.006 | 0.978 ± 0.020 | 0.970 ± 0.002 | 0.017 ± 0.001 |
+| small_cnn_classweight | 3 | 0.998 ± 0.001 | 0.999 ± 0.000 | 0.977 ± 0.003 | 0.969 ± 0.020 | 0.985 ± 0.015 | 0.966 ± 0.013 | 0.016 ± 0.001 |
+| small_cnn_noaug | 3 | 0.997 ± 0.001 | 0.999 ± 0.000 | 0.963 ± 0.002 | 0.966 ± 0.032 | 0.960 ± 0.035 | 0.955 ± 0.017 | 0.016 ± 0.006 |
+
 Selected by validation (highest mean val AUROC across seeds): **resnet18**.
 
 ### E1 MedMNIST ResNet-18 protocol (validation split, threshold 0.5, mean ± SD over seeds)
-Not run yet.
+| Model | Seeds | AUROC | AUPRC | Bal. acc | Sensitivity | Specificity | Macro F1 | ECE |
+|---|---|---|---|---|---|---|---|---|
+| resnet18_medmnist_protocol | 3 | 0.996 ± 0.000 | 0.999 ± 0.000 | 0.966 ± 0.005 | 0.974 ± 0.016 | 0.958 ± 0.026 | 0.961 ± 0.006 | 0.023 ± 0.006 |
+
+Validation without images that also appear in train (516 images):
+
+| Model | Seeds | AUROC | AUPRC | Bal. acc | Sensitivity | Specificity | Macro F1 | ECE |
+|---|---|---|---|---|---|---|---|---|
+| resnet18_medmnist_protocol | 3 | 0.996 ± 0.000 | 0.999 ± 0.000 | 0.966 ± 0.005 | 0.974 ± 0.016 | 0.958 ± 0.026 | 0.961 ± 0.006 | 0.023 ± 0.006 |
+
+Selected by validation (single configuration): **resnet18_medmnist_protocol**.
 
 ### E5 Explanation quality (validation split)
 
@@ -122,6 +149,29 @@ Test, threshold chosen on val (Youden):
 | small_cnn_classweight | 3 | 0.979 ± 0.003 | 0.986 ± 0.003 | 0.889 ± 0.020 | 0.987 ± 0.004 | 0.791 ± 0.035 | 0.903 ± 0.018 | 0.048 ± 0.016 |
 | small_cnn_noaug | 3 | 0.965 ± 0.013 | 0.973 ± 0.014 | 0.857 ± 0.039 | 0.994 ± 0.004 | 0.719 ± 0.082 | 0.875 ± 0.035 | 0.088 ± 0.041 |
 
+Test, threshold chosen on de-duplicated val (Youden):
+
+| Model | Seeds | AUROC | AUPRC | Bal. acc | Sensitivity | Specificity | Macro F1 | ECE |
+|---|---|---|---|---|---|---|---|---|
+| small_cnn | 3 | 0.979 ± 0.005 | 0.984 ± 0.006 | 0.907 ± 0.010 | 0.990 ± 0.008 | 0.823 ± 0.027 | 0.920 ± 0.007 | 0.066 ± 0.005 |
+| resnet18 | 3 | 0.980 ± 0.005 | 0.987 ± 0.004 | 0.874 ± 0.012 | 0.990 ± 0.003 | 0.758 ± 0.024 | 0.890 ± 0.011 | 0.067 ± 0.019 |
+| small_cnn_classweight | 3 | 0.979 ± 0.003 | 0.986 ± 0.003 | 0.889 ± 0.020 | 0.987 ± 0.004 | 0.791 ± 0.035 | 0.903 ± 0.018 | 0.048 ± 0.016 |
+| small_cnn_noaug | 3 | 0.965 ± 0.013 | 0.973 ± 0.014 | 0.857 ± 0.039 | 0.994 ± 0.004 | 0.719 ± 0.082 | 0.875 ± 0.035 | 0.088 ± 0.041 |
+
+Test, seed ensemble (mean score of the seeds), threshold 0.5 (± 0 = single value):
+
+| Model | Seeds | AUROC | AUPRC | Bal. acc | Sensitivity | Specificity | Macro F1 | ECE |
+|---|---|---|---|---|---|---|---|---|
+| small_cnn | ens. | 0.982 ± 0.000 | 0.988 ± 0.000 | 0.883 ± 0.000 | 0.997 ± 0.000 | 0.769 ± 0.000 | 0.901 ± 0.000 | 0.051 ± 0.000 |
+| resnet18 | ens. | 0.982 ± 0.000 | 0.988 ± 0.000 | 0.880 ± 0.000 | 0.995 ± 0.000 | 0.765 ± 0.000 | 0.897 ± 0.000 | 0.052 ± 0.000 |
+| small_cnn_classweight | ens. | 0.983 ± 0.000 | 0.989 ± 0.000 | 0.897 ± 0.000 | 0.987 ± 0.000 | 0.808 ± 0.000 | 0.911 ± 0.000 | 0.040 ± 0.000 |
+| small_cnn_noaug | ens. | 0.976 ± 0.000 | 0.984 ± 0.000 | 0.854 ± 0.000 | 0.995 ± 0.000 | 0.714 ± 0.000 | 0.874 ± 0.000 | 0.057 ± 0.000 |
+
+Paired bootstrap, test AUROC of each seed ensemble minus **resnet18**:
+- small_cnn: -0.0002 (95% CI -0.0053 to +0.0045, bootstrap p ≈ 0.926)
+- small_cnn_classweight: +0.0007 (95% CI -0.0024 to +0.0040, bootstrap p ≈ 0.712)
+- small_cnn_noaug: -0.0059 (95% CI -0.0115 to -0.0008, bootstrap p ≈ 0.024)
+
 Model selected on validation before the test run: **resnet18**.
 
 Per-run test AUROC bootstrap 95% CIs (threshold-free):
@@ -132,16 +182,64 @@ Per-run test AUROC bootstrap 95% CIs (threshold-free):
 <!-- results:end -->
 
 ## What the results show
-Interpretation of the numbers above (all from `reports/`; n = 3 seeds, so no significance test is claimed):
+Interpretation of the numbers above (all from `reports/`; n = 3 seeds per model; model differences are tested with a paired bootstrap over test images on the seed ensembles):
 - **Validation is optimistic.** Validation AUROC is ≈0.998 for every model, but test AUROC is 0.965–0.980. The gap is largest for specificity: at threshold 0.5 most models classify only ≈75% of normal test images as normal (e.g. ResNet-18 seed 1: 70 of 234 normal test images called pneumonia), while sensitivity stays ≥0.98. This fits the known limitation that val was split from the source training set by image, not by patient; E0 found 8 exact duplicate images shared between train and val (none with test).
-- **No clear model winner.** ResNet-18 was selected by the pre-registered rule (highest mean val AUROC), but its margin over the small CNN is 0.0002, within seed variation, and test AUROC is also within overlapping ranges (0.980 ± 0.005 vs 0.979 ± 0.005). The small CNN has ~39× fewer parameters (287 k vs 11.2 M) and trained ~10× faster on CPU.
+- **No clear model winner.** ResNet-18 was selected by the pre-registered rule (highest mean val AUROC), but its margin over the small CNN is 0.0002, within seed variation, and test AUROC is also within overlapping ranges (0.980 ± 0.005 vs 0.979 ± 0.005). The paired bootstrap on the seed ensembles confirms this: small CNN minus ResNet-18 test AUROC −0.0002 (95% CI −0.0053 to +0.0045); only removing augmentation is worse (−0.0059, CI −0.0115 to −0.0008). The small CNN has ~39× fewer parameters (287 k vs 11.2 M) and trained ~10× faster on CPU.
 - **Ablations.** Removing augmentation lowered test AUROC (0.965 ± 0.013) and increased variance. Class weighting gave the highest test specificity at 0.5 (0.809 ± 0.035); this is an observation on the test set and was not used for selection.
 - **Calibration and threshold.** Test ECE (≈0.05–0.09) is several times the val ECE (≈0.015). The val-chosen Youden threshold helped the small CNN (balanced accuracy 0.875 → 0.907) but not ResNet-18.
 - **Explanations (ResNet-18, val, 100 images).** Occlusion has a lower deletion AUC than random deletion (0.555 vs 0.698), i.e. it ranks pixels the model relies on; Grad-CAM (0.751) and Integrated Gradients (0.695) do not beat random deletion at 28 px. Border mass is below the uniform reference (0.383) for all methods, so there is no sign of reliance on image borders. Agreement between seeds is low (top-10% IoU 0.25–0.45), so a single heatmap should not be read as *the* model's reasoning.
 
+## Comparison with the MedMNIST v2 benchmark
+E1 re-ran the MedMNIST v2 ResNet-18 (28) recipe (Adam, lr 1e-3, batch 128, 100 epochs, lr × 0.1 at 50 and 75, no augmentation, checkpoint chosen on val; `configs/resnet18_medmnist_protocol.yaml`; 3 seeds; `reports/e1/`). It was planned from the start (EXPERIMENT_PLAN.md) and its test split was evaluated once.
+
+| PneumoniaMNIST test | AUROC | Accuracy |
+|---|---|---|
+| ResNet-18 (28), published in MedMNIST v2 (Yang et al. 2023) | 0.944 | 0.854 |
+| ResNet-18 (224), published in MedMNIST v2 | 0.956 | 0.864 |
+| E1: our re-run of the ResNet-18 (28) recipe, mean ± SD of 3 seeds | 0.949 ± 0.011 | 0.868 ± 0.026 |
+| E3: ResNet-18 (28), this repo's recipe | 0.980 ± 0.005 | 0.902 ± 0.028 |
+| E2: small CNN (28), this repo's recipe | 0.979 ± 0.005 | 0.905 ± 0.006 |
+| E8: small CNN (64), second look at test | 0.982 ± 0.003 | 0.934 ± 0.006 |
+
+- E1 reproduces the published ResNet-18 (28) numbers within seed variation, so the evaluation setup matches the benchmark's.
+- With the same architecture, this repo's recipe (augmentation, AdamW + cosine schedule, early stopping on val AUROC) beats the benchmark recipe: paired bootstrap on the seed ensembles, AUROC +0.022 (95% CI +0.012 to +0.034), specificity at 0.5 +0.085 (CI +0.033 to +0.141), balanced accuracy +0.044 (CI +0.018 to +0.071) (`reports/compare_resnet18_recipe_vs_e1.json`). Removing augmentation alone also hurt (E4, no augmentation), so augmentation is a likely main factor, but E1 differs from E3 in several settings at once.
+- Published numbers are from a different implementation; only the E1 vs E3 comparison is paired on the same test images.
+
+## Higher resolution (64 px, second look at the test set)
+The low test specificity at 28 px raised the question of whether 28 × 28 px simply throws away too much detail. E8 re-ran the small CNN and the class-weighted small CNN on the official 64 px PneumoniaMNIST files (same splits, same configs, 3 seeds each; ResNet-18 was skipped because it is too slow on a CPU runner at 64 px). Selection again used validation only (small CNN). **This experiment was added after the 28 px test results were known, so its test numbers are a second look at the test set and are reported as such.** Full tables: `reports/size64/RESULTS.md`.
+
+| Small CNN, test, threshold 0.5 | 28 px | 64 px | 64 − 28 (paired, seed ensembles, 95% CI) |
+|---|---|---|---|
+| AUROC (mean ± SD of seeds) | 0.979 ± 0.005 | 0.982 ± 0.003 | +0.003 (−0.004 to +0.011) |
+| Specificity | 0.751 ± 0.024 | 0.870 ± 0.071 | +0.099 (+0.058 to +0.141) |
+| Sensitivity | 0.998 ± 0.003 | 0.973 ± 0.039 | |
+| Balanced accuracy | 0.875 ± 0.010 | 0.922 ± 0.017 | +0.045 (+0.025 to +0.067) |
+
+- At 64 px, the seed ensemble calls 31 of 234 normal test images pneumonia, against 54 at 28 px; it misses 4 of 390 pneumonia images against 1 (`reports/compare_28_vs_64.json`).
+- Ranking (AUROC) barely changes; the gain is in where the scores fall relative to 0.5, i.e. fewer confident false positives on normal images, and test ECE of the ensemble halves (0.051 → 0.026).
+- Explanations improve at 64 px: occlusion (deletion AUC 0.446) and Grad-CAM (0.592) both beat random deletion (0.740); Integrated Gradients (0.708) still does not. Border mass stays below the uniform reference.
+- Removing the 8 val images that duplicate training images changes validation metrics by ≤ 0.001, so the val→test gap is not explained by exact duplicates alone.
+
+## New method test: CAM-faithfulness regularisation (E9, negative primary result)
+E9 asked whether training can make the small CNN's explanations faithful at 28 px. Two extra losses were added (`medxai/faithful.py`): a CAM-deletion loss (removing the top 20% of the true-class CAM should drop the true-class probability to ≤ 0.5) and a CAM equivariance loss under the training augmentation. Weights, endpoints and the single test comparison were pre-registered in EXPERIMENT_PLAN.md before the run (`e9-cam-faithfulness` workflow run 39405671236, 4 groups × 3 seeds, all 524 val and 624 test images). Related ideas exist (GAIN, CVPR 2018; SEAM, CVPR 2020); no novelty is claimed. "Gap" = random deletion AUC − method deletion AUC, higher = more faithful; differences are paired bootstraps over images of seed-averaged values. Source: `reports/e9/xai_compare_val.json`, `reports/e9/xai_compare_test.json`.
+
+| Validation (524 images) | Ensemble AUROC | Grad-CAM gap | IG gap | Occlusion gap |
+|---|---|---|---|---|
+| Baseline small CNN | 0.9984 | −0.020 | +0.046 | +0.200 |
+| CFR (both losses, pre-registered) | 0.9986 | −0.025 | +0.043 | +0.202 |
+| CFR − baseline (95% CI) | +0.0002 (−0.0006 to +0.0012) | −0.005 (−0.021 to +0.011) | −0.003 (−0.011 to +0.005) | +0.003 (−0.018 to +0.024) |
+| Deletion loss only − baseline (exploratory) | −0.0001 (−0.0013 to +0.0010) | **+0.080 (+0.065 to +0.095)** | −0.022 (−0.030 to −0.015) | +0.010 (−0.007 to +0.026) |
+| Equivariance loss only − baseline (exploratory) | +0.0006 (0.0000 to +0.0016) | −0.021 (−0.032 to −0.010) | +0.029 (+0.023 to +0.036) | −0.012 (−0.026 to +0.003) |
+
+- **Primary hypothesis not supported.** The pre-registered CFR model did not make Grad-CAM more faithful on validation (−0.005, CI spans 0). The one-time test comparison agrees: Grad-CAM gap −0.012 (−0.023 to −0.000), AUROC −0.003 (−0.008 to +0.002).
+- **Accuracy is unharmed** (non-inferiority met on validation). On test at 0.5 the CFR ensemble had specificity 0.671 vs 0.603 and balanced accuracy 0.835 vs 0.801 (secondary, no CI computed, not a pre-registered claim).
+- **The two losses pull in opposite directions (exploratory, validation only).** The deletion loss alone makes Grad-CAM beat random (gap +0.059), but the independent checks do not follow: IG gets worse and occlusion is unchanged. So it mainly teaches the model to pass the test it is trained on, not to become more explainable in general. The equivariance loss alone does the reverse. Combined, the effects cancel.
+- A confirmation of the deletion-only result would need a new pre-registered run on data not used here.
+
 ## Limitations
 - No patient identifiers: the official val split was carved from the source training set by image, so train/val patient overlap is possible. The observed val→test drop (above) and 8 exact train/val duplicates are consistent with this; validation scores are optimistic.
-- Single-source pediatric data at 28 px; no external validation is possible here; findings may not generalise.
+- Single-source pediatric data at 28 and 64 px; no external validation is possible here; findings may not generalise.
+- The 64 px experiment (E8) was decided after the 28 px test results were seen; its test results are a second look and should be confirmed on independent data.
 - No lesion annotations: explanations cannot be checked for localisation accuracy, only for faithfulness, stability and border reliance. Heatmaps do not show clinically valid reasoning.
 - External images go through centre-crop + resize; the exact MedMNIST resampling is not verified, so a small preprocessing mismatch is possible.
 

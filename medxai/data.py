@@ -80,6 +80,12 @@ def _hashes(images: np.ndarray) -> list[str]:
     return [hashlib.sha1(np.ascontiguousarray(im).tobytes()).hexdigest() for im in images]
 
 
+def train_duplicate_mask(train_images: np.ndarray, images: np.ndarray) -> np.ndarray:
+    """True where an image is a byte-identical copy of some training image."""
+    seen = set(_hashes(train_images))
+    return np.array([h in seen for h in _hashes(images)], dtype=bool)
+
+
 def _near_dup_keys(images: np.ndarray, side: int = 8) -> list[bytes]:
     """Coarse perceptual key: block-mean downsample to side x side, then 4-bit quantise.
 
@@ -201,11 +207,13 @@ class Normalizer:
 
 
 def augment_batch(x: torch.Tensor, generator: torch.Generator, max_shift: int = 2,
-                  max_rot_deg: float = 10.0) -> torch.Tensor:
+                  max_rot_deg: float = 10.0, return_theta: bool = False):
     """Mild train-only augmentation: small random rotation and translation.
 
     Horizontal flips are deliberately *not* used: chest X-rays have anatomical
     left/right asymmetry (heart position), which flipping would distort.
+    With ``return_theta`` the affine matrices (n x 2 x 3, ``affine_grid`` convention) are
+    returned too, so maps can be warped the same way; the random draws are identical.
     """
     n = x.shape[0]
     ang = (torch.rand(n, generator=generator) * 2 - 1) * (max_rot_deg * np.pi / 180)
@@ -218,7 +226,7 @@ def augment_batch(x: torch.Tensor, generator: torch.Generator, max_shift: int = 
     # Pad with the per-image minimum so borders look like background, not a bright frame.
     fill = x.amin(dim=(1, 2, 3), keepdim=True)
     out = torch.nn.functional.grid_sample(x - fill, grid, align_corners=False, padding_mode="zeros")
-    return out + fill
+    return (out + fill, theta) if return_theta else out + fill
 
 
 class ArrayDataset(Dataset):

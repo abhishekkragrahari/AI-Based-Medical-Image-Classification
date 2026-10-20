@@ -1,0 +1,78 @@
+name: e9-cam-faithfulness
+
+# E9 (EXPERIMENT_PLAN.md): CAM-faithfulness regularisation vs the plain small CNN, 28 px.
+# One job per config trains 3 seeds; the compare job scores explanation faithfulness and
+# accuracy on the validation split for all four groups, then runs the one pre-registered
+# test comparison (cfr vs baseline) and pushes reports/e9 to results/<run id>.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["claude/**"]
+    paths: [".github/workflows/e9.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      matrix:
+        config: [small_cnn, small_cnn_cfr, small_cnn_cfr_del, small_cnn_cfr_eq]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install -r requirements.txt
+      - run: python -m scripts.download_data --size 28
+      - name: Train ${{ matrix.config }} (seeds 0 1 2)
+        run: python -m scripts.run_experiments --configs configs/${{ matrix.config }}.yaml --seeds 0 1 2 --out-dir runs/e9 --report reports/e9/val_${{ matrix.config }}.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: e9-${{ matrix.config }}
+          path: |
+            runs/e9/
+            reports/e9/
+          retention-days: 7
+
+  compare:
+    needs: train
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install -r requirements.txt
+      - run: python -m scripts.download_data --size 28
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: e9-*
+          path: .
+          merge-multiple: true
+      - name: Validation comparison (all groups)
+        run: |
+          g() { echo "--group $1=runs/e9/$2_s0/best.pt,runs/e9/$2_s1/best.pt,runs/e9/$2_s2/best.pt"; }
+          python -m scripts.compare_xai $(g baseline small_cnn) $(g cfr small_cnn_cfr) $(g cfr_del small_cnn_cfr_del) $(g cfr_eq small_cnn_cfr_eq) --ref baseline --out reports/e9/xai_compare_val.json
+      - name: Pre-registered one-time test comparison (cfr vs baseline)
+        run: |
+          g() { echo "--group $1=runs/e9/$2_s0/best.pt,runs/e9/$2_s1/best.pt,runs/e9/$2_s2/best.pt"; }
+          python -m scripts.compare_xai $(g baseline small_cnn) $(g cfr small_cnn_cfr) --ref baseline --split test --final --out reports/e9/xai_compare_test.json
+      - name: Print reports
+        run: cat reports/e9/*.json
+      - name: Push results to a review branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898244+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "results/${{ github.run_id }}"
+          git add reports/e9
+          git commit -m "Add E9 results from run ${{ github.run_id }}"
+          git push origin "results/${{ github.run_id }}"

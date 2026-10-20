@@ -1,0 +1,86 @@
+{
+ "model": "small_cnn",
+ "a": "reports/test_scores.json",
+ "b": "reports/size64/test_scores.json",
+ "n_test": 624,
+ "a_at_0.5": {
+  "n": 624,
+  "threshold": 0.5,
+  "accuracy": 0.9118589743589743,
+  "balanced_accuracy": 0.8833333333333333,
+  "auroc": 0.9821499013806705,
+  "auprc": 0.9875317467589741,
+  "macro_f1": 0.9007217344769234,
+  "ece": 0.05132596473602472,
+  "confusion": {
+   "tn": 180,
+   "fp": 54,
+   "fn": 1,
+   "tp": 389
+  },
+  "per_class": {
+   "normal": {
+    "recall(specificity)": 0.7692307692307693,
+    "precision(npv)": 0.994475138121547,
+    "f1": 0.8674698795180723,
+    "support": 234
+   },
+   "pneumonia": {
+    "recall(sensitivity)": 0.9974358974358974,
+    "precision(ppv)": 0.8781038374717833,
+    "f1": 0.9339735894357744,
+    "support": 390
+   }
+  }
+ },
+ "b_at_0.5": {
+  "n": 624,
+  "threshold": 0.5,
+  "accuracy": 0.9439102564102564,
+  "balanced_accuracy": 0.9286324786324787,
+  "auroc": 0.9855796625027394,
+  "auprc": 0.9904971347060688,
+  "macro_f1": 0.938632206290199,
+  "ece": 0.026096464327976285,
+  "confusion": {
+   "tn": 203,
+   "fp": 31,
+   "fn": 4,
+   "tp": 386
+  },
+  "per_class": {
+   "normal": {
+    "recall(specificity)": 0.8675213675213675,
+    "precision(npv)": 0.9806763285024155,
+    "f1": 0.9206349206349208,
+    "support": 234
+   },
+   "pneumonia": {
+    "recall(sensitivity)": 0.9897435897435898,
+    "precision(ppv)": 0.9256594724220624,
+    "f1": 0.9566294919454771,
+    "support": 390
+   }
+  }
+ },
+ "b_minus_a": {
+  "auroc_diff": 0.0034297611220689417,
+  "ci95": [
+   -0.004464699759449645,
+   0.010611377317795354
+  ],
+  "p_two_sided": 0.379,
+  "n_boot": 2000
+ },
+ "b_minus_a_at_0.5_ci95": {
+  "specificity": [
+   0.05813832866930425,
+   0.1408481727368617
+  ],
+  "balanced_accuracy": [
+   0.024992217725797072,
+   0.06716073107676061
+  ]
+ },
+ "_source": "printed by scripts.compare_sizes in GitHub Actions run 39325733133 (job 118310963609), copied from the job log"
+}

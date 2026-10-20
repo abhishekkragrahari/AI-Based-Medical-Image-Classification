@@ -54,6 +54,9 @@ def main(argv=None):
             "val_at_0.5": aggregate(sums, "val_at_0.5"),
             "val_at_youden": aggregate(sums, "val_at_youden"),
         }
+        if all(s.get("val_dedup") for s in sums):
+            report[name]["val_dedup_at_0.5"] = aggregate([{"m": s["val_dedup"]["at_0.5"]} for s in sums], "m")
+            report[name]["val_dedup_n"] = sums[0]["val_dedup"]["n"]
     report["_selection_rule"] = "highest mean val AUROC across seeds"
     report["_selected"] = max((k for k in report if not k.startswith("_")),
                               key=lambda k: report[k]["val_at_0.5"]["auroc"]["mean"])

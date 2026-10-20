@@ -19,7 +19,8 @@ import torch
 from torch import nn
 
 from . import __version__
-from .data import ArrayDataset, Normalizer, augment_batch, load_npz, md5sum
+from .data import ArrayDataset, Normalizer, augment_batch, load_npz, md5sum, train_duplicate_mask
+from .faithful import cfr_penalty
 from .metrics import binary_metrics, youden_threshold
 from .models import build_model, count_parameters, save_checkpoint
 
@@ -44,6 +45,10 @@ class TrainConfig:
     out_dir: str = "runs"
     run_name: str | None = None
     max_train_samples: int | None = None  # for smoke tests only
+    # E9 CAM-faithfulness regularisation (medxai/faithful.py); 0 = off (plain cross-entropy)
+    cam_del_weight: float = 0.0
+    cam_eq_weight: float = 0.0
+    cam_del_frac: float = 0.2
 
     @classmethod
     def from_file(cls, path: str, **overrides) -> "TrainConfig":
@@ -105,6 +110,9 @@ def train(cfg: TrainConfig, verbose: bool = True) -> dict:
     train_ds, val_ds = ArrayDataset(tr_x, tr_y, norm), ArrayDataset(va_x, va_y, norm)
 
     model = build_model(cfg.model, **cfg.model_kwargs)
+    use_cfr = bool(cfg.cam_del_weight or cfg.cam_eq_weight)
+    if use_cfr and not hasattr(model, "cam"):
+        raise ValueError("CAM-faithfulness regularisation needs a model with features()/cam() (small_cnn)")
     weight = None
     if cfg.class_weighting:
         counts = np.bincount(tr_y.astype(int), minlength=2).astype(float)
@@ -134,14 +142,24 @@ def train(cfg: TrainConfig, verbose: bool = True) -> dict:
     for epoch in range(1, cfg.epochs + 1):
         model.train()
         perm = torch.randperm(len(train_ds), generator=gen)
-        total, nb = 0.0, 0
+        total, nb, aux = 0.0, 0, {}
         for i in range(0, len(perm), cfg.batch_size):
             idx = perm[i : i + cfg.batch_size]
             xb, yb = train_ds.x[idx], train_ds.y[idx]
+            x_clean, theta = xb, None
             if cfg.augment:
-                xb = augment_batch(xb, gen)
+                xb, theta = augment_batch(xb, gen, return_theta=True)
             opt.zero_grad()
-            loss = loss_fn(model(xb), yb)
+            if use_cfr:
+                feats = model.features(xb)
+                loss = loss_fn(model.head(feats), yb)
+                pen, parts = cfr_penalty(model, xb, feats, yb, x_clean, theta, cfg.cam_del_weight,
+                                         cfg.cam_eq_weight, cfg.cam_del_frac)
+                loss = loss + pen
+                for k, v in parts.items():
+                    aux[k] = aux.get(k, 0.0) + v
+            else:
+                loss = loss_fn(model(xb), yb)
             loss.backward()
             opt.step()
             total += loss.item()
@@ -152,6 +170,7 @@ def train(cfg: TrainConfig, verbose: bool = True) -> dict:
         rec = {"epoch": epoch, "train_loss": total / max(nb, 1), "val_auroc": vm["auroc"],
                "val_bal_acc": vm["balanced_accuracy"], "val_acc": vm["accuracy"],
                "elapsed_s": round(time.time() - t0, 1)}
+        rec.update({f"train_{k}_loss": v / max(nb, 1) for k, v in aux.items()})
         history.append(rec)
         if verbose:
             print(json.dumps(rec))
@@ -173,12 +192,22 @@ def train(cfg: TrainConfig, verbose: bool = True) -> dict:
     val_p = predict_proba(model, val_ds.x)
     thr = youden_threshold(va_y, val_p)
     meta["val_threshold_youden"] = thr
+    # The official val split shares exact copies with train; a de-duplicated view gives a
+    # less optimistic validation estimate and an alternative threshold (both val-only).
+    keep = ~train_duplicate_mask(tr_x, va_x)
+    dedup = None
+    if len(np.unique(va_y[keep])) == 2:
+        thr_d = youden_threshold(va_y[keep], val_p[keep])
+        meta["val_threshold_youden_dedup"] = thr_d
+        dedup = {"n": int(keep.sum()), "n_removed": int((~keep).sum()), "threshold_youden": thr_d,
+                 "at_0.5": binary_metrics(va_y[keep], val_p[keep], 0.5)}
     save_checkpoint(os.path.join(run_dir, "best.pt"), model, meta)
     summary = {
         "run_dir": run_dir, "best_epoch": best["epoch"], "train_time_s": round(time.time() - t0, 1),
         "n_params": count_parameters(model), "n_train": int(len(tr_y)), "n_val": int(len(va_y)),
         "val_at_0.5": binary_metrics(va_y, val_p, 0.5),
         "val_at_youden": binary_metrics(va_y, val_p, thr),
+        "val_dedup": dedup,
         "data_md5": md5sum(cfg.data_path), "config": asdict(cfg), "env": environment_info(),
     }
     np.save(os.path.join(run_dir, "val_scores.npy"), val_p)

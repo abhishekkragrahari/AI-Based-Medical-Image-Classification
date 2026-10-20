@@ -1,0 +1,56 @@
+name: web-demo-model
+
+# Trains one small CNN (seed 0) on the real data and exports it as JSON for the
+# in-browser demo (scripts/export_web_model.py), then builds web/pneumonia-demo.html.
+# Both are uploaded as a temporary artifact and pushed to a throwaway orphan branch
+# web-model/<run id> (no project history), which can be deleted once fetched.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["claude/**"]
+    paths: [".github/workflows/web-demo.yml", "scripts/export_web_model.py", "scripts/build_web_demo.py", "web/**"]
+
+permissions:
+  contents: write
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install CPU-only PyTorch
+        run: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      - name: Install requirements
+        run: pip install -r requirements.txt
+      - name: Download data
+        run: python -m scripts.download_data
+      - name: Train small CNN (seed 0)
+        run: python -m scripts.train --config configs/small_cnn.yaml --seed 0 --run-name web_small_cnn_s0
+      - name: Export for the browser
+        run: python -m scripts.export_web_model --run runs/web_small_cnn_s0 --data data/pneumoniamnist.npz --out web_model.json --n-samples 8
+      - name: Build the demo page
+        run: python -m scripts.build_web_demo --model web_model.json --out web/pneumonia-demo.html --run-id ${{ github.run_id }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-model-${{ github.run_id }}
+          path: |
+            web_model.json
+            web/pneumonia-demo.html
+            runs/web_small_cnn_s0/summary.json
+          retention-days: 14
+      - name: Push the export to a throwaway branch
+        run: |
+          mkdir /tmp/out && cp web_model.json web/pneumonia-demo.html runs/web_small_cnn_s0/summary.json /tmp/out/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898244+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan "web-model/${{ github.run_id }}"
+          git rm -rq --cached . && git clean -fdxq -e data -e runs
+          cp /tmp/out/* . && git add web_model.json pneumonia-demo.html summary.json
+          git commit -qm "Browser export of small_cnn seed 0 from run ${{ github.run_id }}"
+          git push origin "web-model/${{ github.run_id }}"
