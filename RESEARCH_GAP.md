@@ -47,6 +47,7 @@ Treat these as ideas to validate, not established novelty:
 - Idea: train the small CNN so that its own class activation map is faithful at 28 px, using a CAM-deletion loss (related to GAIN, Li et al., CVPR 2018) and a CAM equivariance loss under the training augmentation (related to SEAM, Wang et al., CVPR 2020). See `medxai/faithful.py` and the E9 pre-registration in EXPERIMENT_PLAN.md.
 - Novelty status: **unverified**. Both components exist separately in the literature; whether their combination, with a fill mismatch between training and the deletion metric, has been tested for chest X-ray classification needs a literature search before any novelty claim. Without it, E9 is reported as an empirical evaluation of known ideas.
 - H4: CFR raises the validation Grad-CAM deletion gap (random minus Grad-CAM deletion AUC) over the baseline without lowering val AUROC by more than 0.01.
+- Result (2026-10-20, run 39405671236): H4 **not supported** (−0.005, CI −0.021 to +0.011); accuracy unchanged. The deletion loss alone improves the Grad-CAM gap (+0.080) but not the independent IG/occlusion checks, so it is not evidence of generally more faithful explanations. This is a negative result worth reporting, not a contribution claim.
 
 ## Claim policy
 Do not claim novelty, clinical benefit, or state-of-the-art performance without adequate evidence and appropriate comparison. This project claims none of these.

@@ -27,6 +27,7 @@ from medxai.models import load_checkpoint
 from medxai.train import predict_proba
 from medxai.xai import border_mass, deletion_auc, explain, random_deletion_auc
 from scripts.explain import to_tensor
+from scripts.export_web_model import _finite
 
 METHODS = ("gradcam", "ig", "occlusion")
 
@@ -98,7 +99,11 @@ def main(argv=None):
 
     def summ(v):
         v = np.asarray(v, float)
-        return {"mean": float(v.mean()), "std": float(v.std())}
+        ok = v[np.isfinite(v)]
+        out = {"mean": float(ok.mean()) if len(ok) else None, "std": float(ok.std()) if len(ok) else None}
+        if len(ok) < len(v):
+            out["n_undefined"] = int(len(v) - len(ok))  # e.g. border mass of a constant map
+        return out
 
     report = {"split": a.split, "n_images": int(len(idx)), "ref": a.ref,
               "groups": {n: {"checkpoints": c} for n, c in groups.items()},
@@ -117,7 +122,7 @@ def main(argv=None):
                                                                 a.n_boot, a.seed)
     os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
     with open(a.out, "w") as f:
-        json.dump(report, f, indent=1)
+        json.dump(_finite(report), f, indent=1, allow_nan=False)
     for name, g in report["groups"].items():
         print(name, "auroc", round(g["ensemble_at_0.5"]["auroc"], 4),
               {m: round(g["xai"][m]["gap"]["mean"], 3) for m in METHODS}, g.get("vs_ref", ""))

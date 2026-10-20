@@ -23,7 +23,7 @@
 | E8 | Input resolution 64 px (small CNN, class-weighted small CNN) | Does resolution fix the low test specificity? | `python -m scripts.run_all --size 64 --final` (`experiments` workflow, size 64) | Done 2026-10-19 (run 39296675487). Added after the 28 px test results were seen, so its test numbers are a **second look** at the test set |
 | E1b | Paired test comparison: E3 ResNet-18 (this repo's recipe) vs E1 (MedMNIST protocol) seed ensembles | Does the training recipe matter? | `compare-sizes` workflow, second step | Done 2026-10-20 (run 39376661730) → `reports/compare_resnet18_recipe_vs_e1.json` |
 | E8b | Paired 28 px vs 64 px test comparison (small CNN seed ensembles) | Is the 64 px change real? | `python -m scripts.compare_sizes ...` (`compare-sizes` workflow) | Done 2026-10-19 (run 39325733133) → `reports/compare_28_vs_64.json` |
-| E9 | CAM-faithfulness regularisation (CFR) for the small CNN, 28 px, with deletion-only and equivariance-only ablations | Can training make explanations faithful at 28 px without losing accuracy? | `e9-cam-faithfulness` workflow (`scripts.run_experiments` + `scripts.compare_xai`) | Pre-registered 2026-10-20 (below); running |
+| E9 | CAM-faithfulness regularisation (CFR) for the small CNN, 28 px, with deletion-only and equivariance-only ablations | Can training make explanations faithful at 28 px without losing accuracy? | `e9-cam-faithfulness` workflow (`scripts.run_experiments` + `scripts.compare_xai`) | Done 2026-10-20 (run 39405671236) → `reports/e9/`. Primary hypothesis **not supported**; see README |
 
 Pipeline verification on synthetic data (not an experiment): all scripts run end-to-end in `tests/test_pipeline.py`.
 
@@ -34,6 +34,7 @@ Pipeline verification on synthetic data (not an experiment): all scripts run end
 - Primary endpoint (validation, all 524 images): Grad-CAM deletion gap = random deletion AUC - Grad-CAM deletion AUC (fill 0, as in E5), averaged over seeds, CFR minus baseline, paired bootstrap 95% CI over images. H1 supported if the CI is above 0.
 - Guard against circularity: Grad-CAM is what CFR trains, so occlusion and Integrated Gradients gaps are reported as independent secondary checks; training fill (blur) differs from evaluation fill (0) so the model cannot simply learn to react to the fill; random deletion AUC itself is reported per group.
 - Non-inferiority: seed-ensemble val AUROC difference (CFR - baseline) with 95% CI lower bound above -0.01. Secondary: specificity, sensitivity, balanced accuracy at 0.5, border mass.
+- Outcome (added after the run): val Grad-CAM gap CFR − baseline −0.005 (95% CI −0.021 to +0.011), H1 not supported; non-inferiority met (AUROC +0.0002, CI −0.0006 to +0.0012). Test: Grad-CAM gap −0.012 (−0.023 to −0.000). Exploratory ablations: deletion-only +0.080 Grad-CAM gap but IG −0.022 (circularity concern); equivariance-only the reverse.
 - Test: one comparison only, `cfr` vs `baseline`, same metrics, run in the same workflow after the validation step; no decision is changed after seeing it. This is a further look at a test set that E7/E8/E1b already used, which is a limitation.
 
 ## Metrics

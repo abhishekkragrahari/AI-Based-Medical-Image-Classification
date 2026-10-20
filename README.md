@@ -6,6 +6,7 @@ A reproducible, CPU-friendly pipeline for **binary chest X-ray classification (n
 ## Project status (2026-10-19)
 - **Implemented and tested** (39 tests pass on synthetic data): data validation and leakage audit, small CNN and ResNet-18, training with validation-only selection, test evaluation gated behind `--final`, class-wise metrics with bootstrap CIs and calibration, XAI methods and quality metrics, CLI and Gradio inference with input validation.
 - **Run on real data (2026-10-18):** E0, E2–E4, E5 and the one-time E7 test evaluation were run by the `experiments` GitHub Actions workflow (run 39142842061, CPU runner, 3 seeds). Results below are generated from `reports/*.json`. E1 (MedMNIST ResNet-18 protocol) was run on 2026-10-20 (see [Comparison with the MedMNIST v2 benchmark](#comparison-with-the-medmnist-v2-benchmark)).
+- **New method test (2026-10-20):** E9 tried CAM-faithfulness regularisation; its pre-registered hypothesis was not supported (see [New method test](#new-method-test-cam-faithfulness-regularisation-e9-negative-primary-result)).
 - **Follow-up (2026-10-19):** E8 trained the small CNNs on 64 px images (run 39296675487) and E8b compared 28 px and 64 px on the same test images (see [Higher resolution](#higher-resolution-64-px-second-look-at-the-test-set)). A re-run of the 28 px pipeline (run 39296680857) reproduced the per-run test results exactly. An in-browser demo is in `web/`.
 
 ## Goals
@@ -218,6 +219,22 @@ The low test specificity at 28 px raised the question of whether 28 × 28 px sim
 - Ranking (AUROC) barely changes; the gain is in where the scores fall relative to 0.5, i.e. fewer confident false positives on normal images, and test ECE of the ensemble halves (0.051 → 0.026).
 - Explanations improve at 64 px: occlusion (deletion AUC 0.446) and Grad-CAM (0.592) both beat random deletion (0.740); Integrated Gradients (0.708) still does not. Border mass stays below the uniform reference.
 - Removing the 8 val images that duplicate training images changes validation metrics by ≤ 0.001, so the val→test gap is not explained by exact duplicates alone.
+
+## New method test: CAM-faithfulness regularisation (E9, negative primary result)
+E9 asked whether training can make the small CNN's explanations faithful at 28 px. Two extra losses were added (`medxai/faithful.py`): a CAM-deletion loss (removing the top 20% of the true-class CAM should drop the true-class probability to ≤ 0.5) and a CAM equivariance loss under the training augmentation. Weights, endpoints and the single test comparison were pre-registered in EXPERIMENT_PLAN.md before the run (`e9-cam-faithfulness` workflow run 39405671236, 4 groups × 3 seeds, all 524 val and 624 test images). Related ideas exist (GAIN, CVPR 2018; SEAM, CVPR 2020); no novelty is claimed. "Gap" = random deletion AUC − method deletion AUC, higher = more faithful; differences are paired bootstraps over images of seed-averaged values. Source: `reports/e9/xai_compare_val.json`, `reports/e9/xai_compare_test.json`.
+
+| Validation (524 images) | Ensemble AUROC | Grad-CAM gap | IG gap | Occlusion gap |
+|---|---|---|---|---|
+| Baseline small CNN | 0.9984 | −0.020 | +0.046 | +0.200 |
+| CFR (both losses, pre-registered) | 0.9986 | −0.025 | +0.043 | +0.202 |
+| CFR − baseline (95% CI) | +0.0002 (−0.0006 to +0.0012) | −0.005 (−0.021 to +0.011) | −0.003 (−0.011 to +0.005) | +0.003 (−0.018 to +0.024) |
+| Deletion loss only − baseline (exploratory) | −0.0001 (−0.0013 to +0.0010) | **+0.080 (+0.065 to +0.095)** | −0.022 (−0.030 to −0.015) | +0.010 (−0.007 to +0.026) |
+| Equivariance loss only − baseline (exploratory) | +0.0006 (0.0000 to +0.0016) | −0.021 (−0.032 to −0.010) | +0.029 (+0.023 to +0.036) | −0.012 (−0.026 to +0.003) |
+
+- **Primary hypothesis not supported.** The pre-registered CFR model did not make Grad-CAM more faithful on validation (−0.005, CI spans 0). The one-time test comparison agrees: Grad-CAM gap −0.012 (−0.023 to −0.000), AUROC −0.003 (−0.008 to +0.002).
+- **Accuracy is unharmed** (non-inferiority met on validation). On test at 0.5 the CFR ensemble had specificity 0.671 vs 0.603 and balanced accuracy 0.835 vs 0.801 (secondary, no CI computed, not a pre-registered claim).
+- **The two losses pull in opposite directions (exploratory, validation only).** The deletion loss alone makes Grad-CAM beat random (gap +0.059), but the independent checks do not follow: IG gets worse and occlusion is unchanged. So it mainly teaches the model to pass the test it is trained on, not to become more explainable in general. The equivariance loss alone does the reverse. Combined, the effects cancel.
+- A confirmation of the deletion-only result would need a new pre-registered run on data not used here.
 
 ## Limitations
 - No patient identifiers: the official val split was carved from the source training set by image, so train/val patient overlap is possible. The observed val→test drop (above) and 8 exact train/val duplicates are consistent with this; validation scores are optimistic.

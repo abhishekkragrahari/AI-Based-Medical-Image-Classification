@@ -27,7 +27,8 @@ Update this file after each meaningful work session. Record actual outcomes only
 ### 2026-10-20 — E9: CAM-faithfulness regularisation (new method, hypothesis)
 - Added `medxai/faithful.py` (CAM deletion + equivariance losses, BatchNorm statistics kept clean during the extra passes), `SmallCNN.features()/cam()`, `augment_batch(return_theta=True)`, new `TrainConfig` fields (default off, so earlier configs train exactly as before), configs `small_cnn_cfr*.yaml`, `scripts/compare_xai.py`, `tests/test_faithful.py` and the `e9-cam-faithfulness` workflow. 54 tests pass locally.
 - Measured cost on this 4-core CPU: ≈20 s per epoch with CFR vs ≈7 s without (28 px, 4,708 images).
-- Pre-registration written in EXPERIMENT_PLAN.md before the first run. Results: pending.
+- Pre-registration written in EXPERIMENT_PLAN.md before the first run.
+- Run 39405671236 (≈65 min: training 5–24 min per job, val comparison 25 min, test comparison ≈15 min). Results in `reports/e9/` and README. Primary hypothesis not supported (val Grad-CAM gap −0.005, CI −0.021 to +0.011); AUROC unchanged; deletion-only ablation improves Grad-CAM gap +0.080 but worsens IG, so the gain is specific to the trained explanation. For cfr_eq the mean Grad-CAM border mass is NaN in the JSON because at least one map was constant (border mass undefined); `compare_xai` now ignores undefined values and counts them.
 
 ### 2026-10-20 — E1: MedMNIST v2 benchmark comparison
 - Added `scripts/aggregate_runs.py` and the `e1-medmnist-protocol` workflow (one job per seed, then a one-time test evaluation). Run 39362050921: ≈2.6 h per seed; test AUROC 0.949 ± 0.011, accuracy 0.868 ± 0.026, vs published ResNet-18 (28) 0.944 / 0.854 (arXiv 2110.14795).
