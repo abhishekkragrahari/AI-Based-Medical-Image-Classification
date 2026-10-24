@@ -24,6 +24,45 @@ Update this file after each meaningful work session. Record actual outcomes only
 - [x] README updated with script-generated results and their interpretation
 
 ## Session log
+### 2026-10-24 — Paper content completed (except author-only details)
+- Methods filled from the code; deletion fill corrected to 0 in normalised units (training mean intensity), stability set-up stated (30 images, noise SD 0.05, 3 copies). Figures 1-3 (`paper/make_figures.py`); TRAX citation found via Crossref (Array 2026;32:101234), full text blocked by a CAPTCHA, so positioned from its abstract; all references completed from Crossref/arXiv; ethics and consent statements added. Journal PDF: 11 pages, no warnings. Remaining items in `paper/SUBMISSION_CHECKLIST.md`.
+
+### 2026-10-24 — Paper in the journal's LaTeX template
+- Template 'Academia Latex Submission Template.zip' downloaded from the Author guidelines page (via the Windows Chrome; the first attempts went to a connected Mac browser) and unpacked in `paper/journal_template/` (git-ignored; publisher files). Class `jams_academia` with options `Acad.AI.,briefresearchreport,oneauthor`, XeLaTeX.
+- Template bug: the class loads 'DM Sans' by system name before the bundled Fonts/ files, so XeLaTeX fails unless the font is installed. `paper/build_journal.py` writes a local copy of the class without that line and builds `manuscript_journal.pdf` (9 pages, no overfull boxes, no missing glyphs).
+
+### 2026-10-24 — LaTeX build of the paper
+- MiKTeX 25.4 found (pdflatex, latexmk, biber). `python paper/build_latex.py` converts `paper/manuscript.md` to `paper/latex/manuscript.tex` and compiles it: 8 pages, no overfull boxes. Generic article class; the journal's own LaTeX template is not used yet. `paper/build_pdf.py` (HTML + headless Edge) kept as a quick preview.
+
+### 2026-10-24 — Paper reformatted to journal style
+- Academia AI and Applications Author guidelines and Style guide read via Claude in Chrome. `paper/manuscript.md` now follows them: structured abstract, keywords, numbered headings, citations renumbered by first appearance, AI-use disclosure (Methods 2.9 + journal Acknowledgements text), Funding/Conflict/Data availability. Article type set to Brief Research Report (body ~2,400 words; 2,000-3,000 recommended). Uncited MedMNIST v1 reference removed. Remaining items in `paper/SUBMISSION_CHECKLIST.md`.
+
+### 2026-10-24 — Paper draft v0.1
+- `paper/manuscript.md`: IMRaD draft from E0–E9 results only (numbers copied from `reports/`); no E10 results. Open items listed at its end: read TRAX in full, [TODO]/[re-verify] references, figures, journal formatting.
+- Target journal guidelines (Academia AI and Applications) could not be read: academia.edu returned HTTP 403 and the browser page read failed. Wording revised against Wikipedia's 'Signs of AI writing' checklist.
+- Found: README E9 bullet says deletion-only Grad-CAM gap +0.059; its table, EXPERIMENT_PLAN.md and the draft say +0.080. Not yet resolved.
+
+### 2026-10-24 — GPU power cap resolved (M0 benchmark)
+- `nvidia-smi -q -d POWER`: limit 40 W (was 10 W); P0, ≈1,725 MHz SM, ≈21 W under load. `python -m scripts.benchmark_gpu` rerun; unthrottled rows and budget in EXTENDED_EXPERIMENT_PLAN.md §8. ResNet-18 224 px cell ≈382 h > 48 h threshold → excluded (owner decision). M0 done: EXTENDED_EXPERIMENT_PLAN.md frozen. Next: M1 real-data downloads/validation for the three datasets.
+
+### 2026-10-24 — E10 M1 step 2: evaluation, XAI and inference for multi-class / RGB
+- `medxai/xai.py`: occlusion patch/stride default to side/7 and side/14 (= 4/2 at 28 px, as before); `reference_image` fills `zero` | `blur` (σ = side/14) | `noise` (seeded N(0,1)) or a constant/tensor; generic `perturbation_auc` with `insertion_auc`, `random_insertion_auc`, and `unit="patch"` (side/14 patches); cascading `model_randomisation_test` (Adebayo et al. 2018); chunked IG and forward passes scaled to resolution; all functions device-agnostic; RGB `overlay`.
+- `medxai/data.to_model_input` replaces four hand-written grayscale tensor conversions. `medxai/evaluate.py`, `scripts/run_experiments.py`, `scripts/final_eval.py`: multi-class (`at_argmax`, macro OvR AUROC, `bootstrap_ci_multiclass`, `paired_bootstrap_macro_auroc`); binary outputs keep their keys. `run_experiments` gains `--dataset` / `--device`.
+- `scripts/explain.py`: RGB/multi-class, `--fills`, `--units`, `--randomisation N`, `--device`; new `faithfulness` and `model_randomisation` blocks; E5 keys unchanged. `medxai/infer.py`: RGB checkpoints accept colour images (grayscale checkpoints still reject them), argmax label for multi-class.
+- Equivalence: deletion AUC at the old defaults matches a copy of the pre-E10 implementation (test), occlusion defaults equal patch 4 / stride 2 at 28 px (test).
+- Bug found by the new tests and fixed: uniform border-mass reference used the RGB channel axis.
+- Not implemented (deliberately): ROAD-style mask-dependent imputation (the `noise` fill is mask-independent); centre-prior / Sobel trivial baselines; AMP; grid runner. `compare_xai.py` (E9) stays binary/grayscale.
+- Tests: `tests/test_xai_e10.py` (21 tests, incl. CUDA). Full suite: 83 passed, 2 skipped (gradio), 1 failed — the same pre-existing `test_web_export` heatmap mismatch (identical values 0.0902 vs 0.0887).
+
+### 2026-10-24 — E10 planning and M1 step 1 (local Windows laptop, branch `e10-m1-generalise` on top of PR #6)
+- Literature/novelty check → `LITERATURE_NOVELTY_CHECK.md`: current results are not novel enough alone (TRAX 2026 and Kulkarni et al., Sci Rep 2026 overlap); the remaining gap is a hypothesis. TRAX full text not read (HTTP 403).
+- Extended plan → `EXTENDED_EXPERIMENT_PLAN.md` (E10: faithfulness vs resolution, 3 datasets × 28/64/128/224 px; draft, not frozen).
+- Hardware: i5-10500H, 15.8 GB RAM, RTX 3050 Laptop 4 GB, 145 GB free disk; `.venv` with Python 3.12, torch 2.6.0+cu124. `scripts/benchmark_gpu.py` added. **GPU power limit stuck at 10 W (default 35 W)** on battery and on AC (0.14 TFLOPS fp32), so all timings so far are throttled; ResNet-18 at 224 px left as an open decision.
+- Found: training never used the GPU before (no `.to(device)` in `train.py`).
+- M1 step 1: dataset registry (Pneumonia/Breast/BloodMNIST, MD5s from `medmnist.INFO` v3.0.2), RGB + per-channel normaliser, multi-class labels/validation/metrics (`multiclass_metrics`), configurable class names (BreastMNIST: 0 = malignant), `TrainConfig.device` (cpu|cuda|auto, default cpu so earlier configs are unchanged), `dataset` field, `CUBLAS_WORKSPACE_CONFIG` for deterministic CUDA; `--dataset` for `download_data` / `validate_data`.
+- Tests: `tests/test_multiclass.py` (11 tests, incl. a CUDA run). Full suite: 62 passed, 2 skipped (gradio not installed), 1 failed: `test_web_export.py::test_browser_engine_matches_python` (heatmap 0.0902 vs 0.0887, tolerance 1e-3). It fails identically before these changes on this machine (torch 2.6 / Windows); it passes on CI. Not yet investigated.
+- Not done yet (M1 step 2): evaluate/final_eval/explain/compare_xai/infer and XAI functions are still binary + grayscale; occlusion patch scaling, insertion AUC, fills, randomisation test, AMP, grid runner.
+
 ### 2026-10-20 — E9: CAM-faithfulness regularisation (new method, hypothesis)
 - Added `medxai/faithful.py` (CAM deletion + equivariance losses, BatchNorm statistics kept clean during the extra passes), `SmallCNN.features()/cam()`, `augment_batch(return_theta=True)`, new `TrainConfig` fields (default off, so earlier configs train exactly as before), configs `small_cnn_cfr*.yaml`, `scripts/compare_xai.py`, `tests/test_faithful.py` and the `e9-cam-faithfulness` workflow. 54 tests pass locally.
 - Measured cost on this 4-core CPU: ≈20 s per epoch with CFR vs ≈7 s without (28 px, 4,708 images).

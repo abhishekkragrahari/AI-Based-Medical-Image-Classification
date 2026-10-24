@@ -19,15 +19,18 @@ import torch
 from torch import nn
 
 from . import __version__
-from .data import ArrayDataset, Normalizer, augment_batch, load_npz, md5sum, train_duplicate_mask
+from .data import (ArrayDataset, Normalizer, augment_batch, dataset_info, load_npz, md5sum,
+                   train_duplicate_mask)
 from .faithful import cfr_penalty
-from .metrics import binary_metrics, youden_threshold
+from .metrics import binary_metrics, multiclass_metrics, youden_threshold
 from .models import build_model, count_parameters, save_checkpoint
 
 
 @dataclass
 class TrainConfig:
     data_path: str = "data/pneumoniamnist.npz"
+    dataset: str = "pneumoniamnist"  # registry key in medxai.data.DATASETS (class names)
+    device: str = "cpu"             # cpu | cuda | auto (cuda if available)
     model: str = "small_cnn"
     model_kwargs: dict = field(default_factory=dict)
     epochs: int = 30
@@ -64,6 +67,8 @@ class TrainConfig:
 
 
 def set_seed(seed: int) -> None:
+    # Deterministic cuBLAS on CUDA; must be set before the first cuBLAS call (no effect on CPU).
+    os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -87,12 +92,35 @@ def environment_info() -> dict:
 
 
 @torch.no_grad()
-def predict_proba(model: nn.Module, x: torch.Tensor, batch_size: int = 512) -> np.ndarray:
+def predict_proba_all(model: nn.Module, x: torch.Tensor, batch_size: int = 512) -> np.ndarray:
+    """N x K class probabilities (computed on the model's device, returned on the CPU)."""
     model.eval()
+    dev = next(model.parameters()).device
     out = []
     for i in range(0, len(x), batch_size):
-        out.append(torch.softmax(model(x[i : i + batch_size]), dim=1)[:, 1])
+        out.append(torch.softmax(model(x[i : i + batch_size].to(dev)), dim=1).cpu())
     return torch.cat(out).numpy()
+
+
+def predict_proba(model: nn.Module, x: torch.Tensor, batch_size: int = 512) -> np.ndarray:
+    """Probability of class 1 (binary tasks)."""
+    return predict_proba_all(model, x, batch_size)[:, 1]
+
+
+def resolve_device(name: str) -> torch.device:
+    if name == "auto":
+        name = "cuda" if torch.cuda.is_available() else "cpu"
+    if name == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("device 'cuda' requested but torch.cuda.is_available() is False")
+    if name not in ("cpu", "cuda"):
+        raise ValueError(f"unknown device '{name}'")
+    return torch.device(name)
+
+
+def _metrics(y, proba, class_names, threshold: float = 0.5) -> dict:
+    if proba.shape[1] == 2:
+        return binary_metrics(y, proba[:, 1], threshold, tuple(class_names))
+    return multiclass_metrics(y, proba, class_names)
 
 
 def train(cfg: TrainConfig, verbose: bool = True) -> dict:
@@ -108,15 +136,23 @@ def train(cfg: TrainConfig, verbose: bool = True) -> dict:
 
     norm = Normalizer.fit(tr_x)
     train_ds, val_ds = ArrayDataset(tr_x, tr_y, norm), ArrayDataset(va_x, va_y, norm)
+    # Task shape from the data: classes from the labels, channels from the image layout.
+    n_classes = max(2, int(max(tr_y.max(), va_y.max())) + 1)
+    in_channels = int(train_ds.x.shape[1])
+    names = dataset_info(cfg.dataset)["classes"]
+    class_names = names if len(names) == n_classes else [str(c) for c in range(n_classes)]
+    device = resolve_device(cfg.device)
 
-    model = build_model(cfg.model, **cfg.model_kwargs)
+    model_kwargs = {"in_channels": in_channels, "num_classes": n_classes, **cfg.model_kwargs}
+    model = build_model(cfg.model, **model_kwargs).to(device)
     use_cfr = bool(cfg.cam_del_weight or cfg.cam_eq_weight)
     if use_cfr and not hasattr(model, "cam"):
         raise ValueError("CAM-faithfulness regularisation needs a model with features()/cam() (small_cnn)")
     weight = None
     if cfg.class_weighting:
-        counts = np.bincount(tr_y.astype(int), minlength=2).astype(float)
-        weight = torch.tensor(counts.sum() / (2 * counts), dtype=torch.float32)
+        counts = np.bincount(tr_y.astype(int), minlength=n_classes).astype(float)
+        weight = torch.tensor(counts.sum() / (n_classes * np.maximum(counts, 1)), dtype=torch.float32)
+        weight = weight.to(device)
     loss_fn = nn.CrossEntropyLoss(weight=weight)
     if cfg.optimizer == "adamw":
         opt = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
@@ -147,8 +183,11 @@ def train(cfg: TrainConfig, verbose: bool = True) -> dict:
             idx = perm[i : i + cfg.batch_size]
             xb, yb = train_ds.x[idx], train_ds.y[idx]
             x_clean, theta = xb, None
-            if cfg.augment:
+            if cfg.augment:  # on the CPU with the seeded generator, so draws match across devices
                 xb, theta = augment_batch(xb, gen, return_theta=True)
+            if device.type != "cpu":
+                xb, yb, x_clean = xb.to(device), yb.to(device), x_clean.to(device)
+                theta = theta.to(device) if theta is not None else None
             opt.zero_grad()
             if use_cfr:
                 feats = model.features(xb)
@@ -165,8 +204,7 @@ def train(cfg: TrainConfig, verbose: bool = True) -> dict:
             total += loss.item()
             nb += 1
         sched.step()
-        val_p = predict_proba(model, val_ds.x)
-        vm = binary_metrics(va_y, val_p)
+        vm = _metrics(va_y, predict_proba_all(model, val_ds.x), class_names)
         rec = {"epoch": epoch, "train_loss": total / max(nb, 1), "val_auroc": vm["auroc"],
                "val_bal_acc": vm["balanced_accuracy"], "val_acc": vm["accuracy"],
                "elapsed_s": round(time.time() - t0, 1)}
@@ -176,8 +214,9 @@ def train(cfg: TrainConfig, verbose: bool = True) -> dict:
             print(json.dumps(rec))
         if vm["auroc"] > best["auroc"]:
             best = {"auroc": vm["auroc"], "epoch": epoch}
-            meta = {"model": cfg.model, "model_kwargs": cfg.model_kwargs, "normalizer": norm.to_dict(),
-                    "input_size": int(tr_x.shape[1]), "epoch": epoch, "config": asdict(cfg),
+            meta = {"model": cfg.model, "model_kwargs": model_kwargs, "normalizer": norm.to_dict(),
+                    "input_size": int(tr_x.shape[1]), "n_classes": n_classes, "in_channels": in_channels,
+                    "class_names": class_names, "epoch": epoch, "config": asdict(cfg),
                     "medxai_version": __version__}
             save_checkpoint(os.path.join(run_dir, "best.pt"), model, meta)
         elif epoch - best["epoch"] >= cfg.patience:
@@ -189,6 +228,9 @@ def train(cfg: TrainConfig, verbose: bool = True) -> dict:
     from .models import load_checkpoint
 
     model, meta = load_checkpoint(os.path.join(run_dir, "best.pt"))
+    if n_classes > 2:
+        return _finish_multiclass(cfg, model, meta, run_dir, best, history, t0, tr_x, tr_y, va_x, va_y,
+                                  val_ds, class_names)
     val_p = predict_proba(model, val_ds.x)
     thr = youden_threshold(va_y, val_p)
     meta["val_threshold_youden"] = thr
@@ -200,17 +242,42 @@ def train(cfg: TrainConfig, verbose: bool = True) -> dict:
         thr_d = youden_threshold(va_y[keep], val_p[keep])
         meta["val_threshold_youden_dedup"] = thr_d
         dedup = {"n": int(keep.sum()), "n_removed": int((~keep).sum()), "threshold_youden": thr_d,
-                 "at_0.5": binary_metrics(va_y[keep], val_p[keep], 0.5)}
+                 "at_0.5": binary_metrics(va_y[keep], val_p[keep], 0.5, tuple(class_names))}
     save_checkpoint(os.path.join(run_dir, "best.pt"), model, meta)
     summary = {
         "run_dir": run_dir, "best_epoch": best["epoch"], "train_time_s": round(time.time() - t0, 1),
         "n_params": count_parameters(model), "n_train": int(len(tr_y)), "n_val": int(len(va_y)),
-        "val_at_0.5": binary_metrics(va_y, val_p, 0.5),
-        "val_at_youden": binary_metrics(va_y, val_p, thr),
+        "val_at_0.5": binary_metrics(va_y, val_p, 0.5, tuple(class_names)),
+        "val_at_youden": binary_metrics(va_y, val_p, thr, tuple(class_names)),
         "val_dedup": dedup,
         "data_md5": md5sum(cfg.data_path), "config": asdict(cfg), "env": environment_info(),
     }
-    np.save(os.path.join(run_dir, "val_scores.npy"), val_p)
+    return _write_outputs(run_dir, summary, history, val_p)
+
+
+def _finish_multiclass(cfg, model, meta, run_dir, best, history, t0, tr_x, tr_y, va_x, va_y, val_ds,
+                       class_names) -> dict:
+    """Multi-class summary: argmax predictions, no threshold tuning (val-only, as for binary)."""
+    proba = predict_proba_all(model, val_ds.x)
+    keep = ~train_duplicate_mask(tr_x, va_x)
+    dedup = None
+    if keep.any():
+        dedup = {"n": int(keep.sum()), "n_removed": int((~keep).sum()),
+                 "at_argmax": multiclass_metrics(va_y[keep], proba[keep], class_names)}
+    save_checkpoint(os.path.join(run_dir, "best.pt"), model, meta)
+    summary = {
+        "run_dir": run_dir, "best_epoch": best["epoch"], "train_time_s": round(time.time() - t0, 1),
+        "n_params": count_parameters(model), "n_train": int(len(tr_y)), "n_val": int(len(va_y)),
+        "n_classes": len(class_names),
+        "val_at_argmax": multiclass_metrics(va_y, proba, class_names),
+        "val_dedup": dedup,
+        "data_md5": md5sum(cfg.data_path), "config": asdict(cfg), "env": environment_info(),
+    }
+    return _write_outputs(run_dir, summary, history, proba)
+
+
+def _write_outputs(run_dir, summary, history, val_scores) -> dict:
+    np.save(os.path.join(run_dir, "val_scores.npy"), val_scores)
     with open(os.path.join(run_dir, "history.json"), "w") as f:
         json.dump(history, f, indent=1)
     with open(os.path.join(run_dir, "summary.json"), "w") as f:

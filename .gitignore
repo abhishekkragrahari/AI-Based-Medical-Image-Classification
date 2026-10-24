@@ -12,3 +12,5 @@ reports/**/*.npy
 reports/quick/
 web/pneumonia-demo.html
 web_model.json
+# Paper drafts stay local until the paper is published
+paper/
