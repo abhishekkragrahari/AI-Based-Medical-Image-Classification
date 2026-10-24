@@ -24,6 +24,9 @@ Update this file after each meaningful work session. Record actual outcomes only
 - [x] README updated with script-generated results and their interpretation
 
 ## Session log
+### 2026-10-24 — GPU power cap resolved (M0 benchmark)
+- `nvidia-smi -q -d POWER`: limit 40 W (was 10 W); P0, ≈1,725 MHz SM, ≈21 W under load. `python -m scripts.benchmark_gpu` rerun; unthrottled rows and budget in EXTENDED_EXPERIMENT_PLAN.md §8. ResNet-18 224 px cell ≈382 h > 48 h threshold → excluded (owner decision). M0 done: EXTENDED_EXPERIMENT_PLAN.md frozen. Next: M1 real-data downloads/validation for the three datasets.
+
 ### 2026-10-24 — E10 M1 step 2: evaluation, XAI and inference for multi-class / RGB
 - `medxai/xai.py`: occlusion patch/stride default to side/7 and side/14 (= 4/2 at 28 px, as before); `reference_image` fills `zero` | `blur` (σ = side/14) | `noise` (seeded N(0,1)) or a constant/tensor; generic `perturbation_auc` with `insertion_auc`, `random_insertion_auc`, and `unit="patch"` (side/14 patches); cascading `model_randomisation_test` (Adebayo et al. 2018); chunked IG and forward passes scaled to resolution; all functions device-agnostic; RGB `overlay`.
 - `medxai/data.to_model_input` replaces four hand-written grayscale tensor conversions. `medxai/evaluate.py`, `scripts/run_experiments.py`, `scripts/final_eval.py`: multi-class (`at_argmax`, macro OvR AUROC, `bootstrap_ci_multiclass`, `paired_bootstrap_macro_auroc`); binary outputs keep their keys. `run_experiments` gains `--dataset` / `--device`.

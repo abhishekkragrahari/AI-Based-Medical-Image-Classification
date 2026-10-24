@@ -1,6 +1,6 @@
 # Extended Experiment Plan: XAI Faithfulness vs Input Resolution (E10)
 
-Status: **draft, 2026-10-24. Not yet frozen; no E10 run has happened.** Freeze (date + commit) before the first real-data training run. This plan extends `EXPERIMENT_PLAN.md` (E0–E9) and follows from `LITERATURE_NOVELTY_CHECK.md`. Kept as a separate file because open PR #6 also edits `EXPERIMENT_PLAN.md`.
+Status: **frozen, 2026-10-24** (commit "E10 M0: unthrottled GPU benchmark, freeze E10 plan"; no E10 real-data run had happened at freeze). Later changes must be logged as dated amendments with reasons. This plan extends `EXPERIMENT_PLAN.md` (E0–E9) and follows from `LITERATURE_NOVELTY_CHECK.md`. Kept as a separate file because open PR #6 also edits `EXPERIMENT_PLAN.md`.
 
 ## 1. Research question and hypotheses
 **RQ.** Across three MedMNIST+ datasets, does the perturbation faithfulness of saliency explanations (relative to random attribution) change with input resolution (28, 64, 128, 224 px)? Is any change explained by the faithfulness metric itself rather than by the model?
@@ -79,6 +79,8 @@ Benchmark (`python -m scripts.benchmark_gpu`, synthetic data, 3 channels, traini
 | small_cnn, AC power (2026-10-24) | 2.6 | 11.1 | 40.1 | 132.7 | ≤ 0.29 GiB |
 | resnet18, battery | 19.6 | 68.9 | 325 | 1,208 | ≤ 1.31 GiB |
 | resnet18, AC power | 21.5 | 99.8 | 383 | 1,195 | ≤ 1.31 GiB |
+| **small_cnn, unthrottled (2026-10-24, 40 W limit)** | 0.144 | 2.08 | 7.16 | 26.3 | ≤ 0.29 GiB |
+| **resnet18, unthrottled** | 4.11 | 11.0 | 36.4 | 185 | ≤ 1.31 GiB |
 
 **Both runs were throttled.** `nvidia-smi -q` showed the GPU power limit at **10 W (default 35 W, max 40 W)** and the SM clock pinned at 210 MHz (P8) during the run. Raw throughput measured 0.14 TFLOPS fp32 matmul / 0.15 TFLOPS fp32 conv / 0.45 TFLOPS fp16. Windows' active power-mode overlay was `961cc777-2547-4f9d-8174-7d86181b8a7a` (believed to be "Best power efficiency"; verify in Settings). For comparison, ResNet-18 at 28 px here works out to ≈1.1 h per PneumoniaMNIST seed (40 epochs), slower than the 36–59 min measured on the GitHub CPU runner. **Fix before planning further:** Windows Settings → System → Power & battery → Power mode = *Best performance*; in MSI Center, set the User Scenario to a performance mode. Then rerun the benchmark and add an "unthrottled" row.
 
@@ -91,7 +93,11 @@ Benchmark (`python -m scripts.benchmark_gpu`, synthetic data, 3 channels, traini
 | GPU power limit (`nvidia-smi -q -d POWER`) | 10 W | 10 W | **10 W** (default 35 W) |
 | fp32 matmul throughput | — | 0.14 TFLOPS | 0.14 TFLOPS |
 
-Next things to try: set Balanced via Control Panel or `powercfg /setactive 381b4222-f2df-4482-a3b8-f6c3a2ec2b52`, then Power mode = Best performance, then reboot; NVIDIA Control Panel → Power management mode = Prefer maximum performance. Done when `nvidia-smi -q -d POWER` shows a limit above 10 W and SM clocks rise above 210 MHz under load. Until then, all timings in this section are throttled.
+**Resolved (2026-10-24, later):** `nvidia-smi -q -d POWER` now shows current/requested limit 40 W (default 35 W); under the benchmark the GPU sat in P0 at ≈1,725 MHz SM drawing ≈21 W. Unthrottled rows added above. Speed-up vs throttled AC: small CNN 7–18×, ResNet-18 5–10× (6.5× at 224 px).
+
+**Unthrottled upper-bound budget** (same formula, 3 datasets, 3 seeds, 40 epochs): small CNN 0.1 / 4.3 / 15 / 54 h (≈74 h total); ResNet-18 8.5 / 23 / 75 / 382 h. ResNet-18 at 224 px (≈382 h) is well over the ≈48 h threshold (would need ≈8× more speed), so by the rule below it stays out; ResNet-18 28–128 px ≈107 h.
+
+(Superseded) Next things to try: set Balanced via Control Panel or `powercfg /setactive 381b4222-f2df-4482-a3b8-f6c3a2ec2b52`, then Power mode = Best performance, then reboot; NVIDIA Control Panel → Power management mode = Prefer maximum performance. Done when `nvidia-smi -q -d POWER` shows a limit above 10 W and SM clocks rise above 210 MHz under load. Until then, all timings in this section are throttled.
 
 **Upper-bound budget with the throttled AC numbers** (all 3 datasets, 17,213 train images, 3 seeds, 40 epochs with no early stopping):
 
@@ -106,7 +112,7 @@ Formula per run: `train images × epochs × ms/img`. Early stopping (patience 10
 - Throttled: ResNet-18 can't cover all 4 resolutions (≈975 h, i.e. 40+ days). Even 28–128 px is ≈289 h. Only the small CNN grid (≈107 h, under 5 days of overnight runs) is feasible.
 - Reason beyond the GPU: `ResNet18Small` replaces the stride-2 7×7 stem and drops the max-pool, so at 224 px it runs layer1 on 224×224 maps, ≈16× the FLOPs of a standard ResNet-18 at 224 px. Its cost grows with pixel count all the way up. The cost ratio between 224 and 28 px (≈56×) is a property of the architecture and will stay the same once the GPU is unthrottled.
 - **Decided:** small CNN at all 4 resolutions (primary H1–H3 analysis); ResNet-18 at 28/64/128 px (secondary architecture check).
-- **Open decision (owner, 2026-10-24):** ResNet-18 at 224 px. Add it only if an unthrottled benchmark brings that cell (3 datasets × 3 seeds) under ≈48 h, which needs ≈14× the throttled speed. Must be decided before the plan is frozen (M0). Don't switch to the standard stem at high resolution only: that would change architecture and resolution together and confound H1. The XAI cost at 224 px is dominated by occlusion (13 × 13 = 169 forward passes per image with the scaled patch) and IG (32 passes).
+- **Decided (owner, 2026-10-24, at M0): ResNet-18 at 224 px excluded** — unthrottled estimate ≈382 h vs the ≈48 h threshold. Original rule: add it only if an unthrottled benchmark brings that cell (3 datasets × 3 seeds) under ≈48 h, which needs ≈14× the throttled speed. Must be decided before the plan is frozen (M0). Don't switch to the standard stem at high resolution only: that would change architecture and resolution together and confound H1. The XAI cost at 224 px is dominated by occlusion (13 × 13 = 169 forward passes per image with the scaled patch) and IG (32 passes).
 
 Also observed: with a fixed batch of 64, the 128 px run stalled (VRAM spilling to system RAM on Windows instead of raising OOM). Hence the resolution-scaled batch.
 
@@ -115,7 +121,7 @@ Fallbacks, in order, if the AC budget is too large: (1) ResNet-18 only up to 128
 ## 9. Milestones
 | ID | Step | Done when |
 |---|---|---|
-| M0 | Remove the 10 W GPU power cap (Windows power mode / MSI Center), rerun `scripts.benchmark_gpu`, confirm the GPU leaves P8 under load; finalise the ResNet-18 range | Unthrottled row + budget recorded here; plan frozen with date + commit |
+| M0 ✅ 2026-10-24 | Remove the 10 W GPU power cap (Windows power mode / MSI Center), rerun `scripts.benchmark_gpu`, confirm the GPU leaves P8 under load; finalise the ResNet-18 range | Unthrottled row + budget recorded here; plan frozen with date + commit |
 | M1 | Code changes §7 with tests | `pytest` green; binary results unchanged on a PneumoniaMNIST 28 px re-run of one seed |
 | M2 | Download 3 datasets × 4 sizes; E0 validation for each | `reports/e10/data_validation_*.json` |
 | M3 | Smoke run: 1 seed, 2 epochs, every cell of the grid | No crash, memory within 4 GB, timings logged |
