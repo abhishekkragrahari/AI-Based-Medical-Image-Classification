@@ -24,6 +24,15 @@ Update this file after each meaningful work session. Record actual outcomes only
 - [x] README updated with script-generated results and their interpretation
 
 ## Session log
+### 2026-10-24 — E10 M1 step 2: evaluation, XAI and inference for multi-class / RGB
+- `medxai/xai.py`: occlusion patch/stride default to side/7 and side/14 (= 4/2 at 28 px, as before); `reference_image` fills `zero` | `blur` (σ = side/14) | `noise` (seeded N(0,1)) or a constant/tensor; generic `perturbation_auc` with `insertion_auc`, `random_insertion_auc`, and `unit="patch"` (side/14 patches); cascading `model_randomisation_test` (Adebayo et al. 2018); chunked IG and forward passes scaled to resolution; all functions device-agnostic; RGB `overlay`.
+- `medxai/data.to_model_input` replaces four hand-written grayscale tensor conversions. `medxai/evaluate.py`, `scripts/run_experiments.py`, `scripts/final_eval.py`: multi-class (`at_argmax`, macro OvR AUROC, `bootstrap_ci_multiclass`, `paired_bootstrap_macro_auroc`); binary outputs keep their keys. `run_experiments` gains `--dataset` / `--device`.
+- `scripts/explain.py`: RGB/multi-class, `--fills`, `--units`, `--randomisation N`, `--device`; new `faithfulness` and `model_randomisation` blocks; E5 keys unchanged. `medxai/infer.py`: RGB checkpoints accept colour images (grayscale checkpoints still reject them), argmax label for multi-class.
+- Equivalence: deletion AUC at the old defaults matches a copy of the pre-E10 implementation (test), occlusion defaults equal patch 4 / stride 2 at 28 px (test).
+- Bug found by the new tests and fixed: uniform border-mass reference used the RGB channel axis.
+- Not implemented (deliberately): ROAD-style mask-dependent imputation (the `noise` fill is mask-independent); centre-prior / Sobel trivial baselines; AMP; grid runner. `compare_xai.py` (E9) stays binary/grayscale.
+- Tests: `tests/test_xai_e10.py` (21 tests, incl. CUDA). Full suite: 83 passed, 2 skipped (gradio), 1 failed — the same pre-existing `test_web_export` heatmap mismatch (identical values 0.0902 vs 0.0887).
+
 ### 2026-10-24 — E10 planning and M1 step 1 (local Windows laptop, branch `e10-m1-generalise` on top of PR #6)
 - Literature/novelty check → `LITERATURE_NOVELTY_CHECK.md`: current results are not novel enough alone (TRAX 2026 and Kulkarni et al., Sci Rep 2026 overlap); the remaining gap is a hypothesis. TRAX full text not read (HTTP 403).
 - Extended plan → `EXTENDED_EXPERIMENT_PLAN.md` (E10: faithfulness vs resolution, 3 datasets × 28/64/128/224 px; draft, not frozen).

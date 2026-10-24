@@ -277,6 +277,14 @@ def augment_batch(x: torch.Tensor, generator: torch.Generator, max_shift: int = 
     return (out + fill, theta) if return_theta else out + fill
 
 
+def to_model_input(images_uint8: np.ndarray, normalizer: dict) -> torch.Tensor:
+    """N x C x H x W float tensor from uint8 images and a checkpoint's normaliser dict
+    (``{"mean", "std"}`` as floats for grayscale or per-channel lists for RGB)."""
+    norm = Normalizer(mean=normalizer["mean"], std=normalizer["std"])
+    x = torch.from_numpy(norm(images_uint8))
+    return x.permute(0, 3, 1, 2).contiguous() if x.ndim == 4 else x.unsqueeze(1)
+
+
 class ArrayDataset(Dataset):
     """Tensor dataset over normalised images: returns (C x H x W float tensor, int label, index)."""
 

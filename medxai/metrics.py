@@ -158,6 +158,45 @@ def paired_bootstrap_auroc(y_true, score_a, score_b, n_boot: int = 2000, seed: i
             "p_two_sided": float(min(1.0, p)), "n_boot": int(len(d))}
 
 
+def macro_auroc(y_true, proba) -> float:
+    """Macro one-vs-rest AUROC over classes present (both positive and negative) in y_true."""
+    y, proba = np.asarray(y_true).astype(int), np.asarray(proba, dtype=float)
+    vals = [roc_auc_score(y == c, proba[:, c]) for c in range(proba.shape[1])
+            if (y == c).any() and (y != c).any()]
+    return float(np.mean(vals)) if vals else float("nan")
+
+
+def paired_bootstrap_macro_auroc(y_true, proba_a, proba_b, n_boot: int = 2000, seed: int = 0) -> dict:
+    """Multi-class analogue of :func:`paired_bootstrap_auroc` using macro OvR AUROC."""
+    y, a, b = np.asarray(y_true).astype(int), np.asarray(proba_a, float), np.asarray(proba_b, float)
+    rng = np.random.default_rng(seed)
+    diffs = []
+    for _ in range(n_boot):
+        idx = rng.integers(0, len(y), len(y))
+        diffs.append(macro_auroc(y[idx], a[idx]) - macro_auroc(y[idx], b[idx]))
+    d = np.array(diffs, dtype=float)
+    d = d[np.isfinite(d)]
+    obs = macro_auroc(y, a) - macro_auroc(y, b)
+    p = 2 * min((d <= 0).mean(), (d >= 0).mean())
+    return {"auroc_diff": float(obs), "ci95": [float(np.percentile(d, 2.5)), float(np.percentile(d, 97.5))],
+            "p_two_sided": float(min(1.0, p)), "n_boot": int(len(d)), "auroc": "macro one-vs-rest"}
+
+
+def bootstrap_ci_multiclass(y_true, proba, n_boot: int = 1000, seed: int = 0,
+                            keys=("accuracy", "balanced_accuracy", "auroc", "macro_f1")) -> dict:
+    """Percentile 95% CIs for multi-class metrics from resampling cases with replacement."""
+    y, proba = np.asarray(y_true).astype(int), np.asarray(proba, dtype=float)
+    rng = np.random.default_rng(seed)
+    vals = {k: [] for k in keys}
+    for _ in range(n_boot):
+        idx = rng.integers(0, len(y), len(y))
+        m = multiclass_metrics(y[idx], proba[idx])
+        for k in keys:
+            if np.isfinite(m[k]):
+                vals[k].append(m[k])
+    return {k: [float(np.percentile(v, 2.5)), float(np.percentile(v, 97.5))] for k, v in vals.items() if v}
+
+
 def bootstrap_ci(y_true, y_score, threshold: float = 0.5, n_boot: int = 1000, seed: int = 0,
                  keys=("accuracy", "balanced_accuracy", "auroc", "auprc", "macro_f1")) -> dict:
     """Percentile 95% CIs from resampling test cases with replacement."""
