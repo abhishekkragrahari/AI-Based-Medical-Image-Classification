@@ -1,9 +1,10 @@
-"""Data loading, validation and preprocessing for PneumoniaMNIST (MedMNIST v2).
+"""Data loading, validation and preprocessing for MedMNIST (v2 / MedMNIST+) 2D datasets.
 
+PneumoniaMNIST is the default; BreastMNIST and BloodMNIST are registered for E10.
 The ``.npz`` layout follows the official MedMNIST release
 (https://github.com/MedMNIST/MedMNIST, data on Zenodo record 10519652):
-keys ``{train,val,test}_images`` (uint8, N x H x W) and
-``{train,val,test}_labels`` (N x 1, values in {0, 1}).
+keys ``{train,val,test}_images`` (uint8, N x H x W, or N x H x W x 3 for RGB) and
+``{train,val,test}_labels`` (N x 1, values in {0, ..., n_classes - 1}).
 
 Normalisation statistics are fitted on the training split only.
 """
@@ -30,9 +31,43 @@ OFFICIAL_MD5 = {
 OFFICIAL_COUNTS = {"train": 4708, "val": 524, "test": 624}
 ZENODO_URL = "https://zenodo.org/records/10519652/files/pneumoniamnist{flag}.npz?download=1"
 
+# Registered datasets: MD5s, counts and label names copied from the official MedMNIST
+# v3.0.2 ``medmnist.INFO`` (checked 2026-10-24). Licences: all CC BY 4.0.
+DATASETS = {
+    "pneumoniamnist": {
+        "md5": OFFICIAL_MD5, "counts": OFFICIAL_COUNTS, "n_channels": 1,
+        "classes": ["normal", "pneumonia"],
+    },
+    "breastmnist": {
+        "md5": {28: "750601b1f35ba3300ea97c75c52ff8f6", 64: "742edef2a1fd1524b2efff4bd7ba9364",
+                128: "363e4b3f8d712e9b5de15470a2aaadf1", 224: "b56378a6eefa9fed602bb16d192d4c8b"},
+        "counts": {"train": 546, "val": 78, "test": 156}, "n_channels": 1,
+        # Note the label order: 0 = malignant, 1 = normal/benign (official MedMNIST labels).
+        "classes": ["malignant", "normal_benign"],
+    },
+    "bloodmnist": {
+        "md5": {28: "7053d0359d879ad8a5505303e11de1dc", 64: "2b94928a2ae4916078ca51e05b6b800b",
+                128: "adace1e0ed228fccda1f39692059dd4c", 224: "b718ff6835fcbdb22ba9eacccd7b2601"},
+        "counts": {"train": 11959, "val": 1712, "test": 3421}, "n_channels": 3,
+        "classes": ["basophil", "eosinophil", "erythroblast", "immature_granulocytes", "lymphocyte",
+                    "monocyte", "neutrophil", "platelet"],
+    },
+}
 
-def npz_filename(size: int = 28) -> str:
-    return "pneumoniamnist.npz" if size == 28 else f"pneumoniamnist_{size}.npz"
+
+def dataset_info(flag: str) -> dict:
+    if flag not in DATASETS:
+        raise ValueError(f"unknown dataset '{flag}'; choose from {sorted(DATASETS)}")
+    return DATASETS[flag]
+
+
+def npz_filename(size: int = 28, flag: str = "pneumoniamnist") -> str:
+    dataset_info(flag)
+    return f"{flag}.npz" if size == 28 else f"{flag}_{size}.npz"
+
+
+def dataset_url(flag: str = "pneumoniamnist", size: int = 28) -> str:
+    return f"https://zenodo.org/records/10519652/files/{npz_filename(size, flag)}?download=1"
 
 
 def md5sum(path: str, chunk: int = 1 << 20) -> str:
@@ -91,6 +126,8 @@ def _near_dup_keys(images: np.ndarray, side: int = 8) -> list[bytes]:
 
     Collisions flag *candidate* near-duplicates for manual review only.
     """
+    if images.ndim == 4:  # RGB: compare luminance-like channel mean
+        images = images.mean(axis=3)
     n, h, w = images.shape[:3]
     bh, bw = h // side, w // side
     x = images[:, : bh * side, : bw * side].astype(np.float32)
@@ -106,9 +143,11 @@ def validate_dataset(
     data: dict[str, tuple[np.ndarray, np.ndarray]],
     expected_counts: dict[str, int] | None = None,
     near_duplicates: bool = True,
+    n_classes: int = 2,
 ) -> ValidationReport:
     """Integrity and leakage checks described in DATASET_GUIDE.md / TESTING.md."""
     rep = ValidationReport()
+    classes = list(range(n_classes))
     split_hashes = {}
     split_near = {}
     for split in SPLITS:
@@ -123,15 +162,15 @@ def validate_dataset(
             continue
         if len(imgs) != len(labels):
             rep.error(f"{split}: {len(imgs)} images but {len(labels)} labels")
-        if imgs.ndim != 3:
-            rep.error(f"{split}: expected grayscale N x H x W, got shape {imgs.shape}")
+        if not (imgs.ndim == 3 or (imgs.ndim == 4 and imgs.shape[3] == 3)):
+            rep.error(f"{split}: expected grayscale N x H x W or RGB N x H x W x 3, got shape {imgs.shape}")
         if imgs.dtype != np.uint8:
             rep.error(f"{split}: expected uint8 images, got {imgs.dtype}")
-        bad = ~np.isin(labels, [0, 1])
+        bad = ~np.isin(labels, classes)
         if bad.any():
-            rep.error(f"{split}: {int(bad.sum())} labels outside {{0,1}}")
+            rep.error(f"{split}: {int(bad.sum())} labels outside {{{','.join(map(str, classes))}}}")
         s["shape"] = list(imgs.shape[1:])
-        s["class_counts"] = {str(c): int((labels == c).sum()) for c in (0, 1)}
+        s["class_counts"] = {str(c): int((labels == c).sum()) for c in classes}
         s["pixel_min"], s["pixel_max"] = int(imgs.min()), int(imgs.max())
         s["pixel_mean"] = float(imgs.mean())
         flat_std = imgs.reshape(len(imgs), -1).std(axis=1)
@@ -153,7 +192,7 @@ def validate_dataset(
             rep.warnings.append(
                 f"{split}: {s['n_within_split_exact_duplicates']} exact duplicate images within split"
             )
-        if near_duplicates and imgs.ndim == 3:
+        if near_duplicates and imgs.ndim in (3, 4):
             split_near[split] = _near_dup_keys(imgs)
         rep.stats[split] = s
 
@@ -187,19 +226,28 @@ def validate_dataset(
 # --------------------------------------------------------------------------- #
 @dataclass
 class Normalizer:
-    """Global intensity normalisation; fit on training images only."""
+    """Intensity normalisation; fit on training images only.
 
-    mean: float = 0.5
-    std: float = 0.25
+    Grayscale: one global mean/std (floats). RGB (N x H x W x 3): per-channel lists.
+    """
+
+    mean: float | list = 0.5
+    std: float | list = 0.25
 
     @classmethod
     def fit(cls, train_images: np.ndarray) -> "Normalizer":
         x = train_images.astype(np.float64) / 255.0
+        if x.ndim == 4:
+            std = x.std(axis=(0, 1, 2))
+            return cls(mean=[float(v) for v in x.mean(axis=(0, 1, 2))],
+                       std=[float(v) if v > 0 else 1.0 for v in std])
         std = float(x.std())
         return cls(mean=float(x.mean()), std=std if std > 0 else 1.0)
 
     def __call__(self, images_uint8: np.ndarray) -> np.ndarray:
         x = images_uint8.astype(np.float32) / 255.0
+        if isinstance(self.mean, list):
+            return (x - np.float32(self.mean)) / np.float32(self.std)
         return (x - self.mean) / self.std
 
     def to_dict(self) -> dict:
@@ -230,10 +278,11 @@ def augment_batch(x: torch.Tensor, generator: torch.Generator, max_shift: int = 
 
 
 class ArrayDataset(Dataset):
-    """Tensor dataset over normalised images: returns (1 x H x W float tensor, int label, index)."""
+    """Tensor dataset over normalised images: returns (C x H x W float tensor, int label, index)."""
 
     def __init__(self, images: np.ndarray, labels: np.ndarray, normalizer: Normalizer):
-        self.x = torch.from_numpy(normalizer(images)).unsqueeze(1)
+        x = torch.from_numpy(normalizer(images))
+        self.x = x.permute(0, 3, 1, 2).contiguous() if x.ndim == 4 else x.unsqueeze(1)
         self.y = torch.from_numpy(labels.astype(np.int64))
 
     def __len__(self) -> int:
@@ -243,22 +292,30 @@ class ArrayDataset(Dataset):
         return self.x[i], self.y[i], i
 
 
-def make_synthetic_npz(path: str, size: int = 28, counts=(60, 20, 20), seed: int = 0) -> str:
-    """Write a small synthetic PneumoniaMNIST-format file for tests (no real patient data).
+def make_synthetic_npz(path: str, size: int = 28, counts=(60, 20, 20), seed: int = 0,
+                       n_classes: int = 2, channels: int = 1) -> str:
+    """Write a small synthetic MedMNIST-format file for tests (no real patient data).
 
-    Class 1 images contain a bright blob in a random lung-field position so that a
-    model can learn a non-trivial, localisable signal.
+    Class c >= 1 images contain a bright blob (larger for higher c) in a random central
+    position so that a model can learn a non-trivial, localisable signal. With
+    ``channels=3`` the image is repeated over RGB and class c tints channel c % 3.
+    The default (binary, grayscale) output is unchanged from earlier versions.
     """
     rng = np.random.default_rng(seed)
     arrays = {}
     yy, xx = np.mgrid[0:size, 0:size]
     for split, n in zip(SPLITS, counts):
-        labels = np.array([i % 2 for i in range(n)], dtype=np.uint8)
+        labels = np.array([i % n_classes for i in range(n)], dtype=np.uint8)
         rng.shuffle(labels)
         imgs = rng.normal(100, 20, size=(n, size, size))
-        for k in np.where(labels == 1)[0]:
+        for k in np.where(labels >= 1)[0]:
             cy, cx = rng.integers(size // 4, 3 * size // 4, size=2)
-            imgs[k] += 90 * np.exp(-((yy - cy) ** 2 + (xx - cx) ** 2) / (2 * (size / 10) ** 2))
+            sigma = size / 10 * (1 + 0.5 * (int(labels[k]) - 1))
+            imgs[k] += 90 * np.exp(-((yy - cy) ** 2 + (xx - cx) ** 2) / (2 * sigma ** 2))
+        if channels == 3:
+            imgs = np.repeat(imgs[..., None], 3, axis=3)
+            for k in range(n):
+                imgs[k, ..., int(labels[k]) % 3] += 30
         arrays[f"{split}_images"] = np.clip(imgs, 0, 255).astype(np.uint8)
         arrays[f"{split}_labels"] = labels.reshape(-1, 1)
     np.savez_compressed(path, **arrays)

@@ -24,6 +24,15 @@ Update this file after each meaningful work session. Record actual outcomes only
 - [x] README updated with script-generated results and their interpretation
 
 ## Session log
+### 2026-10-24 — E10 planning and M1 step 1 (local Windows laptop, branch `e10-m1-generalise` on top of PR #6)
+- Literature/novelty check → `LITERATURE_NOVELTY_CHECK.md`: current results are not novel enough alone (TRAX 2026 and Kulkarni et al., Sci Rep 2026 overlap); the remaining gap is a hypothesis. TRAX full text not read (HTTP 403).
+- Extended plan → `EXTENDED_EXPERIMENT_PLAN.md` (E10: faithfulness vs resolution, 3 datasets × 28/64/128/224 px; draft, not frozen).
+- Hardware: i5-10500H, 15.8 GB RAM, RTX 3050 Laptop 4 GB, 145 GB free disk; `.venv` with Python 3.12, torch 2.6.0+cu124. `scripts/benchmark_gpu.py` added. **GPU power limit stuck at 10 W (default 35 W)** on battery and on AC (0.14 TFLOPS fp32), so all timings so far are throttled; ResNet-18 at 224 px left as an open decision.
+- Found: training never used the GPU before (no `.to(device)` in `train.py`).
+- M1 step 1: dataset registry (Pneumonia/Breast/BloodMNIST, MD5s from `medmnist.INFO` v3.0.2), RGB + per-channel normaliser, multi-class labels/validation/metrics (`multiclass_metrics`), configurable class names (BreastMNIST: 0 = malignant), `TrainConfig.device` (cpu|cuda|auto, default cpu so earlier configs are unchanged), `dataset` field, `CUBLAS_WORKSPACE_CONFIG` for deterministic CUDA; `--dataset` for `download_data` / `validate_data`.
+- Tests: `tests/test_multiclass.py` (11 tests, incl. a CUDA run). Full suite: 62 passed, 2 skipped (gradio not installed), 1 failed: `test_web_export.py::test_browser_engine_matches_python` (heatmap 0.0902 vs 0.0887, tolerance 1e-3). It fails identically before these changes on this machine (torch 2.6 / Windows); it passes on CI. Not yet investigated.
+- Not done yet (M1 step 2): evaluate/final_eval/explain/compare_xai/infer and XAI functions are still binary + grayscale; occlusion patch scaling, insertion AUC, fills, randomisation test, AMP, grid runner.
+
 ### 2026-10-20 — E9: CAM-faithfulness regularisation (new method, hypothesis)
 - Added `medxai/faithful.py` (CAM deletion + equivariance losses, BatchNorm statistics kept clean during the extra passes), `SmallCNN.features()/cam()`, `augment_batch(return_theta=True)`, new `TrainConfig` fields (default off, so earlier configs train exactly as before), configs `small_cnn_cfr*.yaml`, `scripts/compare_xai.py`, `tests/test_faithful.py` and the `e9-cam-faithfulness` workflow. 54 tests pass locally.
 - Measured cost on this 4-core CPU: ≈20 s per epoch with CFR vs ≈7 s without (28 px, 4,708 images).

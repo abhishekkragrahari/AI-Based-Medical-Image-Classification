@@ -1,6 +1,7 @@
-"""Binary classification metrics with class-wise breakdown and bootstrap CIs.
+"""Classification metrics with class-wise breakdown and bootstrap CIs.
 
-Positive class = 1 (pneumonia). ``y_score`` is the predicted probability of class 1.
+Binary: positive class = 1 (pneumonia by default). ``y_score`` is the predicted probability
+of class 1. Multi-class: ``multiclass_metrics`` takes the N x K probability matrix.
 """
 
 from __future__ import annotations
@@ -38,7 +39,9 @@ def expected_calibration_error(y_true, y_score, n_bins: int = 10) -> float:
     return float(ece)
 
 
-def binary_metrics(y_true, y_score, threshold: float = 0.5) -> dict:
+def binary_metrics(y_true, y_score, threshold: float = 0.5,
+                   class_names: tuple[str, str] = ("normal", "pneumonia")) -> dict:
+    """``class_names`` = (class 0, class 1); only changes the ``per_class`` keys."""
     y_true = np.asarray(y_true).astype(int)
     y_score = np.asarray(y_score, dtype=float)
     if y_true.shape != y_score.shape:
@@ -65,11 +68,64 @@ def binary_metrics(y_true, y_score, threshold: float = 0.5) -> dict:
         "ece": expected_calibration_error(y_true, y_score),
         "confusion": c,
         "per_class": {
-            "normal": {"recall(specificity)": spec, "precision(npv)": npv, "f1": f1_neg,
-                       "support": int((y_true == 0).sum())},
-            "pneumonia": {"recall(sensitivity)": sens, "precision(ppv)": ppv, "f1": f1_pos,
-                          "support": int((y_true == 1).sum())},
+            class_names[0]: {"recall(specificity)": spec, "precision(npv)": npv, "f1": f1_neg,
+                             "support": int((y_true == 0).sum())},
+            class_names[1]: {"recall(sensitivity)": sens, "precision(ppv)": ppv, "f1": f1_pos,
+                             "support": int((y_true == 1).sum())},
         },
+    }
+
+
+def multiclass_metrics(y_true, proba, class_names=None) -> dict:
+    """Metrics for single-label K-class tasks from an N x K probability matrix.
+
+    Prediction = argmax. AUROC/AUPRC are macro one-vs-rest averages over classes present in
+    ``y_true`` (``n_auroc_classes`` says how many). ECE uses the top-label confidence.
+    """
+    y_true = np.asarray(y_true).astype(int)
+    proba = np.asarray(proba, dtype=float)
+    if proba.ndim != 2 or len(proba) != len(y_true):
+        raise ValueError(f"expected N x K probabilities for {len(y_true)} labels, got {proba.shape}")
+    if len(y_true) == 0:
+        raise ValueError("empty inputs")
+    k = proba.shape[1]
+    names = list(class_names) if class_names is not None else [str(c) for c in range(k)]
+    y_pred = proba.argmax(axis=1)
+    cm = np.zeros((k, k), dtype=int)
+    np.add.at(cm, (y_true, y_pred), 1)
+    per_class, recalls, f1s, aurocs, auprcs = {}, [], [], [], []
+    for c in range(k):
+        tp, sup, npred = cm[c, c], cm[c].sum(), cm[:, c].sum()
+        rec, prec = _div(tp, sup), _div(tp, npred)
+        f1 = _div(2 * prec * rec, prec + rec) if not np.isnan(prec + rec) else float("nan")
+        per_class[names[c]] = {"recall": rec, "precision": prec, "f1": f1, "support": int(sup)}
+        if sup:
+            recalls.append(rec)
+            f1s.append(f1)
+        pos = y_true == c
+        if pos.any() and (~pos).any():
+            aurocs.append(roc_auc_score(pos, proba[:, c]))
+            auprcs.append(average_precision_score(pos, proba[:, c]))
+    conf = proba.max(axis=1)
+    correct = (y_pred == y_true).astype(float)
+    bins = np.linspace(0.0, 1.0, 11)
+    ece = 0.0
+    for lo, hi in zip(bins[:-1], bins[1:]):
+        m = (conf > lo) & (conf <= hi)
+        if m.any():
+            ece += m.mean() * abs(correct[m].mean() - conf[m].mean())
+    return {
+        "n": int(len(y_true)),
+        "n_classes": k,
+        "accuracy": float(correct.mean()),
+        "balanced_accuracy": float(np.nanmean(recalls)),
+        "auroc": float(np.mean(aurocs)) if aurocs else float("nan"),
+        "auprc": float(np.mean(auprcs)) if auprcs else float("nan"),
+        "n_auroc_classes": len(aurocs),
+        "macro_f1": float(np.nanmean(f1s)),
+        "ece": float(ece),
+        "confusion_matrix": cm.tolist(),
+        "per_class": per_class,
     }
 
 
