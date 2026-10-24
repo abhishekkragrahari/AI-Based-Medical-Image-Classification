@@ -24,6 +24,24 @@ Update this file after each meaningful work session. Record actual outcomes only
 - [x] README updated with script-generated results and their interpretation
 
 ## Session log
+### 2026-10-24 — Paper content completed (except author-only details)
+- Methods filled from the code; deletion fill corrected to 0 in normalised units (training mean intensity), stability set-up stated (30 images, noise SD 0.05, 3 copies). Figures 1-3 (`paper/make_figures.py`); TRAX citation found via Crossref (Array 2026;32:101234), full text blocked by a CAPTCHA, so positioned from its abstract; all references completed from Crossref/arXiv; ethics and consent statements added. Journal PDF: 11 pages, no warnings. Remaining items in `paper/SUBMISSION_CHECKLIST.md`.
+
+### 2026-10-24 — Paper in the journal's LaTeX template
+- Template 'Academia Latex Submission Template.zip' downloaded from the Author guidelines page (via the Windows Chrome; the first attempts went to a connected Mac browser) and unpacked in `paper/journal_template/` (git-ignored; publisher files). Class `jams_academia` with options `Acad.AI.,briefresearchreport,oneauthor`, XeLaTeX.
+- Template bug: the class loads 'DM Sans' by system name before the bundled Fonts/ files, so XeLaTeX fails unless the font is installed. `paper/build_journal.py` writes a local copy of the class without that line and builds `manuscript_journal.pdf` (9 pages, no overfull boxes, no missing glyphs).
+
+### 2026-10-24 — LaTeX build of the paper
+- MiKTeX 25.4 found (pdflatex, latexmk, biber). `python paper/build_latex.py` converts `paper/manuscript.md` to `paper/latex/manuscript.tex` and compiles it: 8 pages, no overfull boxes. Generic article class; the journal's own LaTeX template is not used yet. `paper/build_pdf.py` (HTML + headless Edge) kept as a quick preview.
+
+### 2026-10-24 — Paper reformatted to journal style
+- Academia AI and Applications Author guidelines and Style guide read via Claude in Chrome. `paper/manuscript.md` now follows them: structured abstract, keywords, numbered headings, citations renumbered by first appearance, AI-use disclosure (Methods 2.9 + journal Acknowledgements text), Funding/Conflict/Data availability. Article type set to Brief Research Report (body ~2,400 words; 2,000-3,000 recommended). Uncited MedMNIST v1 reference removed. Remaining items in `paper/SUBMISSION_CHECKLIST.md`.
+
+### 2026-10-24 — Paper draft v0.1
+- `paper/manuscript.md`: IMRaD draft from E0–E9 results only (numbers copied from `reports/`); no E10 results. Open items listed at its end: read TRAX in full, [TODO]/[re-verify] references, figures, journal formatting.
+- Target journal guidelines (Academia AI and Applications) could not be read: academia.edu returned HTTP 403 and the browser page read failed. Wording revised against Wikipedia's 'Signs of AI writing' checklist.
+- Found: README E9 bullet says deletion-only Grad-CAM gap +0.059; its table, EXPERIMENT_PLAN.md and the draft say +0.080. Not yet resolved.
+
 ### 2026-10-24 — GPU power cap resolved (M0 benchmark)
 - `nvidia-smi -q -d POWER`: limit 40 W (was 10 W); P0, ≈1,725 MHz SM, ≈21 W under load. `python -m scripts.benchmark_gpu` rerun; unthrottled rows and budget in EXTENDED_EXPERIMENT_PLAN.md §8. ResNet-18 224 px cell ≈382 h > 48 h threshold → excluded (owner decision). M0 done: EXTENDED_EXPERIMENT_PLAN.md frozen. Next: M1 real-data downloads/validation for the three datasets.
 
