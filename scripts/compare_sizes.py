@@ -43,9 +43,9 @@ def main(argv=None):
     out = {"model": a.model, "b_model": a.b_model or a.model, "a": a.a, "b": a.b, "n_test": int(len(ya)),
            "a_at_0.5": binary_metrics(ya, pa, 0.5), "b_at_0.5": binary_metrics(ya, pb, 0.5),
            "b_minus_a": paired_bootstrap_auroc(ya, pb, pa, n_boot=a.n_boot)}
-    # Paired bootstrap of the specificity and balanced-accuracy differences at 0.5.
+    # Paired bootstrap of the specificity, sensitivity and balanced-accuracy differences at 0.5.
     rng = np.random.default_rng(0)
-    d = {"specificity": [], "balanced_accuracy": []}
+    d = {"specificity": [], "sensitivity": [], "balanced_accuracy": []}
     for _ in range(a.n_boot):
         i = rng.integers(0, len(ya), len(ya))
         if len(np.unique(ya[i])) < 2:
@@ -53,6 +53,8 @@ def main(argv=None):
         ma, mb = binary_metrics(ya[i], pa[i], 0.5), binary_metrics(ya[i], pb[i], 0.5)
         d["specificity"].append(mb["per_class"]["normal"]["recall(specificity)"]
                                 - ma["per_class"]["normal"]["recall(specificity)"])
+        d["sensitivity"].append(mb["per_class"]["pneumonia"]["recall(sensitivity)"]
+                                - ma["per_class"]["pneumonia"]["recall(sensitivity)"])
         d["balanced_accuracy"].append(mb["balanced_accuracy"] - ma["balanced_accuracy"])
     out["b_minus_a_at_0.5_ci95"] = {k: [float(np.percentile(v, 2.5)), float(np.percentile(v, 97.5))]
                                     for k, v in d.items()}

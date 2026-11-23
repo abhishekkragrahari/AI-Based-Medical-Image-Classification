@@ -135,3 +135,11 @@ Update this file after each meaningful work session. Record actual outcomes only
 - Runs (git-ignored): `runs/<config>_s<seed>/` → `best.pt`, `summary.json`, `history.json`, `val_scores.npy`, `{split}_metrics.json`, `test_access.log`
 - Reports (committed, small): `reports/data_validation_28.json`, `reports/val_summary.json`, `reports/val_e1.json`, `reports/test_summary.json`, `reports/xai_<model>_val/`
 - None of these exist yet for real data.
+
+## 2026-11-23: Manuscript revision 1: controlled saliency analysis and full result manifest
+- Reviewer-reported issues verified and corrected in the manuscript: the original saliency aggregate statistics (`reports/xai_resnet18_val`, `reports/size64/xai_small_cnn_val`) used only the first seed (`scripts/explain.py` uses `models[0]`); the 64 px results predate resolution-scaled occlusion, so 64 px used a fixed 4x4 patch with stride 2.
+- `scripts/compare_sizes.py` also bootstraps the sensitivity difference (64 - 28 px small CNN: -0.008, 95% CI -0.017 to 0.000).
+- New controlled saliency analysis: `scripts/controlled_xai.py` (run by `scripts/run_controlled_xai.sh`). Small CNN and ResNet-18 at 28 and 64 px, seeds 0-2, the same 100 validation images (seed-0 draw), resolution-scaled occlusion, deletion fills zero (training mean) and blur, 5 random orders per image, paired bootstrap CIs over images. Results: `reports/revision/controlled_xai.json` (+ per-image file). Models are GPU re-runs (RTX 3050; the CPU checkpoints were not kept): small CNN as for the training curves; ResNet-18 via `configs/revision/resnet18_gpu.yaml` and `scripts/run_resnet_gpu.sh`. No test data used.
+- Main result: whether a method beats random deletion depends on the network and the fill more than on resolution. With the mean fill, ResNet-18 Grad-CAM gap is -0.137 (28 px) and -0.134 (64 px); 64 px improves Grad-CAM only for the small CNN (+0.119). With a blur fill, every method beats random in every setting.
+- Training-curve records: `reports/training_curves/` + `scripts/plot_training_curves.py`. Figures: `scripts/make_paper_figures.py` -> `reports/figures/` (checked against the submitted figures). Table/figure -> file map: `reports/MANIFEST.md`.
+- Tests: 95 passed, 2 skipped, 1 pre-existing failure (`test_web_export::test_browser_engine_matches_python`).
